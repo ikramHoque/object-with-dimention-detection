@@ -1,0 +1,42 @@
+# --- python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# --- jupyter ---
+.ipynb_checkpoints/
+
+# --- POC data ---
+# Footage of real homes is personal data under UK GDPR and must never be committed.
+# A house inventory plus a move date is also a target list. See GAPS.md C5 / C6.
+poc/data/input/*
+poc/data/output/*
+!poc/data/input/.gitkeep
+!poc/data/output/.gitkeep
+
+# Ground truth can carry property addresses — keep it local.
+poc/ground_truth.csv
+
+# --- model weights & caches ---
+*.pt
+*.pth
+*.onnx
+*.safetensors
+.cache/
+hub/
+
+# --- secrets ---
+.env
+.env.*
+*.pem
+*.key
+
+# --- os / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

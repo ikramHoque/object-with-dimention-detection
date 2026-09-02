@@ -1,0 +1,476 @@
+{
+  "_meta": {
+    "status": "PLACEHOLDER \u2014 replace with NX's own cube sheet (gap A3)",
+    "units": {
+      "cube_ft3": "cubic feet, packed",
+      "cube_m3": "cubic metres, packed",
+      "typical_dims_m": "[width, depth, height] in metres, upright/unpacked"
+    },
+    "note": "cube_ft3 values are indicative trade norms. typical_dims_m are used to map a geometric measurement to the nearest size class (Arm B -> Arm A bridge). Packed volume deliberately exceeds w*d*h for most items (padding, crating, voids).",
+    "ft3_to_m3": 0.0283168
+  },
+  "classes": {
+    "sofa_2_seat": {
+      "cube_ft3": 35,
+      "cube_m3": 0.9911,
+      "typical_dims_m": [
+        1.6,
+        0.9,
+        0.85
+      ],
+      "bbox_m3": 1.224,
+      "room": "living"
+    },
+    "sofa_3_seat": {
+      "cube_ft3": 50,
+      "cube_m3": 1.4158,
+      "typical_dims_m": [
+        2.1,
+        0.9,
+        0.85
+      ],
+      "bbox_m3": 1.6065,
+      "room": "living"
+    },
+    "sofa_sectional": {
+      "cube_ft3": 80,
+      "cube_m3": 2.2653,
+      "typical_dims_m": [
+        2.8,
+        1.7,
+        0.85
+      ],
+      "bbox_m3": 4.046,
+      "room": "living"
+    },
+    "armchair": {
+      "cube_ft3": 20,
+      "cube_m3": 0.5663,
+      "typical_dims_m": [
+        0.9,
+        0.9,
+        0.95
+      ],
+      "bbox_m3": 0.7695,
+      "room": "living"
+    },
+    "recliner": {
+      "cube_ft3": 30,
+      "cube_m3": 0.8495,
+      "typical_dims_m": [
+        0.95,
+        1.0,
+        1.05
+      ],
+      "bbox_m3": 0.9975,
+      "room": "living"
+    },
+    "coffee_table": {
+      "cube_ft3": 12,
+      "cube_m3": 0.3398,
+      "typical_dims_m": [
+        1.1,
+        0.6,
+        0.45
+      ],
+      "bbox_m3": 0.297,
+      "room": "living"
+    },
+    "side_table": {
+      "cube_ft3": 6,
+      "cube_m3": 0.1699,
+      "typical_dims_m": [
+        0.5,
+        0.5,
+        0.55
+      ],
+      "bbox_m3": 0.1375,
+      "room": "living"
+    },
+    "tv_stand": {
+      "cube_ft3": 15,
+      "cube_m3": 0.4248,
+      "typical_dims_m": [
+        1.4,
+        0.4,
+        0.5
+      ],
+      "bbox_m3": 0.28,
+      "room": "living"
+    },
+    "tv_up_to_43in": {
+      "cube_ft3": 8,
+      "cube_m3": 0.2265,
+      "typical_dims_m": [
+        0.97,
+        0.08,
+        0.57
+      ],
+      "bbox_m3": 0.0442,
+      "room": "living"
+    },
+    "tv_over_43in": {
+      "cube_ft3": 14,
+      "cube_m3": 0.3964,
+      "typical_dims_m": [
+        1.24,
+        0.08,
+        0.72
+      ],
+      "bbox_m3": 0.0714,
+      "room": "living"
+    },
+    "bookcase_small": {
+      "cube_ft3": 15,
+      "cube_m3": 0.4248,
+      "typical_dims_m": [
+        0.8,
+        0.3,
+        1.1
+      ],
+      "bbox_m3": 0.264,
+      "room": "living"
+    },
+    "bookcase_large": {
+      "cube_ft3": 25,
+      "cube_m3": 0.7079,
+      "typical_dims_m": [
+        0.9,
+        0.35,
+        1.9
+      ],
+      "bbox_m3": 0.5985,
+      "room": "living"
+    },
+    "sideboard": {
+      "cube_ft3": 30,
+      "cube_m3": 0.8495,
+      "typical_dims_m": [
+        1.6,
+        0.45,
+        0.8
+      ],
+      "bbox_m3": 0.576,
+      "room": "living"
+    },
+    "floor_lamp": {
+      "cube_ft3": 5,
+      "cube_m3": 0.1416,
+      "typical_dims_m": [
+        0.4,
+        0.4,
+        1.6
+      ],
+      "bbox_m3": 0.256,
+      "room": "living"
+    },
+    "rug_rolled": {
+      "cube_ft3": 8,
+      "cube_m3": 0.2265,
+      "typical_dims_m": [
+        0.3,
+        0.3,
+        2.0
+      ],
+      "bbox_m3": 0.18,
+      "room": "living"
+    },
+    "bed_single_frame": {
+      "cube_ft3": 25,
+      "cube_m3": 0.7079,
+      "typical_dims_m": [
+        0.95,
+        1.95,
+        0.45
+      ],
+      "bbox_m3": 0.8336,
+      "room": "bedroom"
+    },
+    "bed_double_frame": {
+      "cube_ft3": 40,
+      "cube_m3": 1.1327,
+      "typical_dims_m": [
+        1.4,
+        2.0,
+        0.45
+      ],
+      "bbox_m3": 1.26,
+      "room": "bedroom"
+    },
+    "bed_king_frame": {
+      "cube_ft3": 50,
+      "cube_m3": 1.4158,
+      "typical_dims_m": [
+        1.55,
+        2.05,
+        0.45
+      ],
+      "bbox_m3": 1.4299,
+      "room": "bedroom"
+    },
+    "mattress_single": {
+      "cube_ft3": 20,
+      "cube_m3": 0.5663,
+      "typical_dims_m": [
+        0.9,
+        1.9,
+        0.25
+      ],
+      "bbox_m3": 0.4275,
+      "room": "bedroom"
+    },
+    "mattress_double": {
+      "cube_ft3": 35,
+      "cube_m3": 0.9911,
+      "typical_dims_m": [
+        1.35,
+        1.9,
+        0.28
+      ],
+      "bbox_m3": 0.7182,
+      "room": "bedroom"
+    },
+    "mattress_king": {
+      "cube_ft3": 45,
+      "cube_m3": 1.2743,
+      "typical_dims_m": [
+        1.5,
+        2.0,
+        0.3
+      ],
+      "bbox_m3": 0.9,
+      "room": "bedroom"
+    },
+    "wardrobe_single": {
+      "cube_ft3": 35,
+      "cube_m3": 0.9911,
+      "typical_dims_m": [
+        0.6,
+        0.6,
+        1.9
+      ],
+      "bbox_m3": 0.684,
+      "room": "bedroom"
+    },
+    "wardrobe_double": {
+      "cube_ft3": 60,
+      "cube_m3": 1.699,
+      "typical_dims_m": [
+        1.2,
+        0.6,
+        2.0
+      ],
+      "bbox_m3": 1.44,
+      "room": "bedroom"
+    },
+    "chest_3_drawer": {
+      "cube_ft3": 20,
+      "cube_m3": 0.5663,
+      "typical_dims_m": [
+        0.8,
+        0.45,
+        0.75
+      ],
+      "bbox_m3": 0.27,
+      "room": "bedroom"
+    },
+    "chest_5_drawer": {
+      "cube_ft3": 30,
+      "cube_m3": 0.8495,
+      "typical_dims_m": [
+        0.8,
+        0.45,
+        1.2
+      ],
+      "bbox_m3": 0.432,
+      "room": "bedroom"
+    },
+    "bedside_table": {
+      "cube_ft3": 8,
+      "cube_m3": 0.2265,
+      "typical_dims_m": [
+        0.45,
+        0.4,
+        0.55
+      ],
+      "bbox_m3": 0.099,
+      "room": "bedroom"
+    },
+    "dressing_table": {
+      "cube_ft3": 25,
+      "cube_m3": 0.7079,
+      "typical_dims_m": [
+        1.1,
+        0.45,
+        0.75
+      ],
+      "bbox_m3": 0.3713,
+      "room": "bedroom"
+    },
+    "mirror_large": {
+      "cube_ft3": 8,
+      "cube_m3": 0.2265,
+      "typical_dims_m": [
+        0.8,
+        0.05,
+        1.6
+      ],
+      "bbox_m3": 0.064,
+      "room": "bedroom"
+    },
+    "washing_machine": {
+      "cube_ft3": 25,
+      "cube_m3": 0.7079,
+      "typical_dims_m": [
+        0.6,
+        0.6,
+        0.85
+      ],
+      "bbox_m3": 0.306,
+      "room": "any"
+    },
+    "dishwasher": {
+      "cube_ft3": 20,
+      "cube_m3": 0.5663,
+      "typical_dims_m": [
+        0.6,
+        0.6,
+        0.82
+      ],
+      "bbox_m3": 0.2952,
+      "room": "any"
+    },
+    "fridge_freezer_tall": {
+      "cube_ft3": 35,
+      "cube_m3": 0.9911,
+      "typical_dims_m": [
+        0.6,
+        0.65,
+        1.8
+      ],
+      "bbox_m3": 0.702,
+      "room": "any"
+    },
+    "microwave": {
+      "cube_ft3": 5,
+      "cube_m3": 0.1416,
+      "typical_dims_m": [
+        0.5,
+        0.4,
+        0.3
+      ],
+      "bbox_m3": 0.06,
+      "room": "any"
+    },
+    "vacuum_cleaner": {
+      "cube_ft3": 6,
+      "cube_m3": 0.1699,
+      "typical_dims_m": [
+        0.4,
+        0.35,
+        1.1
+      ],
+      "bbox_m3": 0.154,
+      "room": "any"
+    },
+    "dining_chair": {
+      "cube_ft3": 5,
+      "cube_m3": 0.1416,
+      "typical_dims_m": [
+        0.45,
+        0.5,
+        0.9
+      ],
+      "bbox_m3": 0.2025,
+      "room": "any"
+    },
+    "dining_table_4seat": {
+      "cube_ft3": 30,
+      "cube_m3": 0.8495,
+      "typical_dims_m": [
+        1.2,
+        0.8,
+        0.75
+      ],
+      "bbox_m3": 0.72,
+      "room": "any"
+    },
+    "dining_table_6seat": {
+      "cube_ft3": 45,
+      "cube_m3": 1.2743,
+      "typical_dims_m": [
+        1.8,
+        0.9,
+        0.75
+      ],
+      "bbox_m3": 1.215,
+      "room": "any"
+    },
+    "desk": {
+      "cube_ft3": 25,
+      "cube_m3": 0.7079,
+      "typical_dims_m": [
+        1.4,
+        0.7,
+        0.75
+      ],
+      "bbox_m3": 0.735,
+      "room": "any"
+    },
+    "office_chair": {
+      "cube_ft3": 12,
+      "cube_m3": 0.3398,
+      "typical_dims_m": [
+        0.6,
+        0.6,
+        1.1
+      ],
+      "bbox_m3": 0.396,
+      "room": "any"
+    },
+    "carton_small": {
+      "cube_ft3": 1.5,
+      "cube_m3": 0.0425,
+      "typical_dims_m": [
+        0.46,
+        0.3,
+        0.3
+      ],
+      "bbox_m3": 0.0414,
+      "room": "carton"
+    },
+    "carton_medium": {
+      "cube_ft3": 3.0,
+      "cube_m3": 0.085,
+      "typical_dims_m": [
+        0.46,
+        0.46,
+        0.41
+      ],
+      "bbox_m3": 0.0868,
+      "room": "carton"
+    },
+    "carton_large": {
+      "cube_ft3": 4.5,
+      "cube_m3": 0.1274,
+      "typical_dims_m": [
+        0.51,
+        0.46,
+        0.51
+      ],
+      "bbox_m3": 0.1196,
+      "room": "carton"
+    },
+    "carton_wardrobe": {
+      "cube_ft3": 13.0,
+      "cube_m3": 0.3681,
+      "typical_dims_m": [
+        0.51,
+        0.61,
+        1.22
+      ],
+      "bbox_m3": 0.3795,
+      "room": "carton"
+    }
+  }
+}

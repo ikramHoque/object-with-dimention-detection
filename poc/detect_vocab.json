@@ -1,0 +1,94 @@
+{
+  "sofa": [
+    "sofa_2_seat",
+    "sofa_3_seat",
+    "sofa_sectional"
+  ],
+  "armchair": [
+    "armchair",
+    "recliner"
+  ],
+  "coffee table": [
+    "coffee_table"
+  ],
+  "side table": [
+    "side_table",
+    "bedside_table"
+  ],
+  "television": [
+    "tv_up_to_43in",
+    "tv_over_43in"
+  ],
+  "tv stand": [
+    "tv_stand"
+  ],
+  "bookcase": [
+    "bookcase_small",
+    "bookcase_large"
+  ],
+  "sideboard": [
+    "sideboard"
+  ],
+  "floor lamp": [
+    "floor_lamp"
+  ],
+  "rolled rug": [
+    "rug_rolled"
+  ],
+  "bed": [
+    "bed_single_frame",
+    "bed_double_frame",
+    "bed_king_frame"
+  ],
+  "mattress": [
+    "mattress_single",
+    "mattress_double",
+    "mattress_king"
+  ],
+  "wardrobe": [
+    "wardrobe_single",
+    "wardrobe_double"
+  ],
+  "chest of drawers": [
+    "chest_3_drawer",
+    "chest_5_drawer"
+  ],
+  "dressing table": [
+    "dressing_table"
+  ],
+  "mirror": [
+    "mirror_large"
+  ],
+  "washing machine": [
+    "washing_machine"
+  ],
+  "dishwasher": [
+    "dishwasher"
+  ],
+  "refrigerator": [
+    "fridge_freezer_tall"
+  ],
+  "microwave": [
+    "microwave"
+  ],
+  "vacuum cleaner": [
+    "vacuum_cleaner"
+  ],
+  "chair": [
+    "dining_chair",
+    "office_chair"
+  ],
+  "dining table": [
+    "dining_table_4seat",
+    "dining_table_6seat"
+  ],
+  "desk": [
+    "desk"
+  ],
+  "cardboard box": [
+    "carton_small",
+    "carton_medium",
+    "carton_large"
+  ],
+  "door": []
+}

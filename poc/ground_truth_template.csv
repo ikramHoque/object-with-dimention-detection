@@ -1,0 +1,11 @@
+room_id,property_id,room_type,item_id,true_class,qty,width_m,depth_m,height_m,occluded,notes
+BED01,P1,bedroom,1,bed_double_frame,1,1.40,2.00,0.45,no,measured with laser
+BED01,P1,bedroom,2,mattress_double,1,1.35,1.90,0.28,no,
+BED01,P1,bedroom,3,wardrobe_double,1,1.20,0.60,2.00,no,doors closed
+BED01,P1,bedroom,4,bedside_table,2,0.45,0.40,0.55,partial,one behind bed
+BED01,P1,bedroom,5,chest_3_drawer,1,0.80,0.45,0.75,no,
+LIV01,P1,living,1,sofa_3_seat,1,2.10,0.90,0.85,no,
+LIV01,P1,living,2,armchair,2,0.90,0.90,0.95,no,
+LIV01,P1,living,3,coffee_table,1,1.10,0.60,0.45,no,
+LIV01,P1,living,4,tv_over_43in,1,1.24,0.08,0.72,no,wall mounted
+LIV01,P1,living,5,bookcase_large,1,0.90,0.35,1.90,no,
