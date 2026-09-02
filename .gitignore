@@ -1,3 +1,14 @@
+# ============================================================================
+# FILE PURPOSE · What must never reach the remote repository.
+#
+# The critical rules are the POC data ones. Footage of real homes is personal
+# data under UK GDPR, and a house inventory combined with a move date is a
+# target list for burglary. Neither may be committed. See GAPS.md C5 and C6.
+#
+# Verified behaviour: poc/data/** and poc/ground_truth.csv are ignored, while
+# the .gitkeep files, the notebook and the JSON tables stay tracked.
+# ============================================================================
+
 # --- python ---
 __pycache__/
 *.py[cod]
@@ -20,6 +31,10 @@ poc/data/output/*
 
 # Ground truth can carry property addresses — keep it local.
 poc/ground_truth.csv
+
+# Sweep output. One JSON per run, can hold thousands of measurement rows.
+poc/results/*.json
+!poc/results/.gitkeep
 
 # --- model weights & caches ---
 *.pt

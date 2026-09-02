@@ -1,94 +1,103 @@
 {
-  "sofa": [
-    "sofa_2_seat",
-    "sofa_3_seat",
-    "sofa_sectional"
-  ],
-  "armchair": [
-    "armchair",
-    "recliner"
-  ],
-  "coffee table": [
-    "coffee_table"
-  ],
-  "side table": [
-    "side_table",
-    "bedside_table"
-  ],
-  "television": [
-    "tv_up_to_43in",
-    "tv_over_43in"
-  ],
-  "tv stand": [
-    "tv_stand"
-  ],
-  "bookcase": [
-    "bookcase_small",
-    "bookcase_large"
-  ],
-  "sideboard": [
-    "sideboard"
-  ],
-  "floor lamp": [
-    "floor_lamp"
-  ],
-  "rolled rug": [
-    "rug_rolled"
-  ],
-  "bed": [
-    "bed_single_frame",
-    "bed_double_frame",
-    "bed_king_frame"
-  ],
-  "mattress": [
-    "mattress_single",
-    "mattress_double",
-    "mattress_king"
-  ],
-  "wardrobe": [
-    "wardrobe_single",
-    "wardrobe_double"
-  ],
-  "chest of drawers": [
-    "chest_3_drawer",
-    "chest_5_drawer"
-  ],
-  "dressing table": [
-    "dressing_table"
-  ],
-  "mirror": [
-    "mirror_large"
-  ],
-  "washing machine": [
-    "washing_machine"
-  ],
-  "dishwasher": [
-    "dishwasher"
-  ],
-  "refrigerator": [
-    "fridge_freezer_tall"
-  ],
-  "microwave": [
-    "microwave"
-  ],
-  "vacuum cleaner": [
-    "vacuum_cleaner"
-  ],
-  "chair": [
-    "dining_chair",
-    "office_chair"
-  ],
-  "dining table": [
-    "dining_table_4seat",
-    "dining_table_6seat"
-  ],
-  "desk": [
-    "desk"
-  ],
-  "cardboard box": [
-    "carton_small",
-    "carton_medium",
-    "carton_large"
-  ],
-  "door": []
+  "_meta": {
+    "file_purpose": "WHAT THE DETECTOR LOOKS FOR (Stage 2 of the POC pipeline). Each key is a plain English phrase handed to Grounding DINO; each value lists the cube_table size classes that phrase could turn out to be.",
+    "why_it_matters": "Two jobs. (1) Anything not listed here is invisible to BOTH methods - it is the first thing to check when stage 9 reports items 'missed entirely'. (2) The value list narrows Method B's candidates when matching a measurement to a size class, which is worth ~18 percentage points of accuracy at realistic error levels. Never match a measurement against the whole table.",
+    "how_to_edit": "Add a phrase as a new key with the plausible size classes as its value. Keep phrases lowercase - Grounding DINO expects that. An empty list means 'detect but do not treat as cargo'.",
+    "special_case": "'door' has an empty class list on purpose. It is detected only to act as the 1981mm measuring stick in Stage 4, and is excluded from the inventory.",
+    "used_by": "poc/pipeline.ipynb stages 2, 5 and the appendix"
+  },
+  "prompts": {
+    "sofa": [
+      "sofa_2_seat",
+      "sofa_3_seat",
+      "sofa_sectional"
+    ],
+    "armchair": [
+      "armchair",
+      "recliner"
+    ],
+    "coffee table": [
+      "coffee_table"
+    ],
+    "side table": [
+      "side_table",
+      "bedside_table"
+    ],
+    "television": [
+      "tv_up_to_43in",
+      "tv_over_43in"
+    ],
+    "tv stand": [
+      "tv_stand"
+    ],
+    "bookcase": [
+      "bookcase_small",
+      "bookcase_large"
+    ],
+    "sideboard": [
+      "sideboard"
+    ],
+    "floor lamp": [
+      "floor_lamp"
+    ],
+    "rolled rug": [
+      "rug_rolled"
+    ],
+    "bed": [
+      "bed_single_frame",
+      "bed_double_frame",
+      "bed_king_frame"
+    ],
+    "mattress": [
+      "mattress_single",
+      "mattress_double",
+      "mattress_king"
+    ],
+    "wardrobe": [
+      "wardrobe_single",
+      "wardrobe_double"
+    ],
+    "chest of drawers": [
+      "chest_3_drawer",
+      "chest_5_drawer"
+    ],
+    "dressing table": [
+      "dressing_table"
+    ],
+    "mirror": [
+      "mirror_large"
+    ],
+    "washing machine": [
+      "washing_machine"
+    ],
+    "dishwasher": [
+      "dishwasher"
+    ],
+    "refrigerator": [
+      "fridge_freezer_tall"
+    ],
+    "microwave": [
+      "microwave"
+    ],
+    "vacuum cleaner": [
+      "vacuum_cleaner"
+    ],
+    "chair": [
+      "dining_chair",
+      "office_chair"
+    ],
+    "dining table": [
+      "dining_table_4seat",
+      "dining_table_6seat"
+    ],
+    "desk": [
+      "desk"
+    ],
+    "cardboard box": [
+      "carton_small",
+      "carton_medium",
+      "carton_large"
+    ],
+    "door": []
+  }
 }

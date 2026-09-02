@@ -1,3 +1,14 @@
+# FILE PURPOSE: The correct answers. Hand measurements of real rooms, used by Stage 9
+#   to score both methods. THIS TEMPLATE IS NOT THE REAL FILE - copy it to
+#   ground_truth.csv and fill it in with your own measurements.
+# WHY IT MATTERS: Without this the notebook still prints volumes, but nothing tells you
+#   whether they are right. It is gap A1, and it is the difference between a demo and an
+#   experiment. Roughly half a day with a laser measure for 3-5 rooms.
+# HOW TO FILL IN: one row per distinct item. Use qty for identical repeats (4 dining
+#   chairs = one row, qty 4). true_class must match a key in cube_table.json.
+#   Dimensions in metres, upright and unpacked. occluded = no / partial / hidden.
+# NOTE: ground_truth.csv is gitignored because it can carry property addresses.
+# Lines starting with # are ignored by the notebook (read_csv comment='#').
 room_id,property_id,room_type,item_id,true_class,qty,width_m,depth_m,height_m,occluded,notes
 BED01,P1,bedroom,1,bed_double_frame,1,1.40,2.00,0.45,no,measured with laser
 BED01,P1,bedroom,2,mattress_double,1,1.35,1.90,0.28,no,

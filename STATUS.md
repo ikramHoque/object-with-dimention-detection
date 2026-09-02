@@ -1,16 +1,40 @@
 # Implementation Status
 
-**Snapshot — 2 Sept 2026**
+> **FILE PURPOSE** — How much of the POC actually exists, and how much of that has been
+> proven to run. Separates *written* from *verified*, because those are different claims.
+> Update on every change to pipeline behaviour.
+>
+> Map: `ARCHITECTURE.md` · Open decisions: `GAPS.md`
 
-The POC pipeline is **written end to end and has never been run end to end.** All nine
-stages plus an appendix exist as working code, the notebook is structurally valid, and
-every code cell parses. What is missing is not code — it is a Python environment, some
-room footage, and hand measurements to score against.
+**Snapshot — 3 Sept 2026**
+
+Two things exist now: the exploratory **notebook** (one fixed pipeline, nine stages) and a
+**pluggable model harness** (13 interchangeable models, 14 curated combinations, a licence
+gate and a ranking tool).
+
+The picture has changed since the last snapshot. The pipeline **maths is now genuinely
+tested** — executed against synthetic geometry with real numpy, all assertions passing.
+What remains unverified is the **model integrations**, which need weights and footage.
 
 | | |
 |---|---|
+| Notebook | 28 cells, 864 lines, 9 stages + appendix |
+| Harness | 19 modules, 2196 lines |
+| Models available | **13** — 6 detectors, 3 depth, 1 segmenter, 3 classifiers |
+| Models that cannot ship | **3** — `yolo_world`, `yoloe` (AGPL), `unidepth2` (CC BY-NC) |
+| Curated combinations | 14, one-factor-at-a-time |
+| **Algorithm** verified by execution | **9 of 9 functions** — nms, extent, door_scale, nearest_class, resolve_dims, dedup ×2, score, volume |
+| **Tooling** verified by execution | registry, licence gate, sweep planner, ranking |
+| **Model adapters** verified | **0 of 13** — no weights, no deps installed |
+| Defects found and fixed by testing | **2**, both real (see below) |
+| Blocked on environment or data | end-to-end run |
+
+**One-line read:** the arithmetic is trustworthy and the harness works; nothing has yet
+touched a real photograph.
+
+---|---|
 | Pipeline stages written | **10 / 10** (9 + appendix) |
-| Code | 472 lines, 15 cells, 16 functions |
+| Code | 524 lines of logic + 340 lines of explanatory comment, 15 cells, 16 functions |
 | Executed as written | **1 / 10 stages** (the appendix) |
 | Logic verified via standalone replica | 3 stages (partial) |
 | Statically validated | 15 / 15 cells — JSON, syntax, name resolution |
@@ -43,12 +67,57 @@ about 15%, and closing that gap is four setup steps, not more engineering.
 | **2** Detection | Grounding DINO open-vocab boxes, 26 prompts | 52 loc | 🔴 | syntax only | env, weights, footage |
 | **3** Depth | MoGe-2 metric point map in metres | 38 loc | 🔴 | syntax only | env, weights, footage |
 | **4** Scale anchor | Door-height correction factor — **the ablation switch** | 32 loc | 🔴 | syntax only | stages 2 + 3 |
-| **5** Arm B | PCA-oriented 3D extent per object → nearest size class | 46 loc | 🟢 | `nearest_class` replica: 5/5 correct | stage 3 for `extent` |
-| **6** Arm A | Claude vision → forced size-class JSON | 63 loc | 🟡 | syntax only | env, API key, footage |
+| **5** Method B | PCA-oriented 3D extent per object → nearest size class | 46 loc | 🟢 | `nearest_class` replica: 5/5 correct | stage 3 for `extent` |
+| **6** Method A | Claude vision → forced size-class JSON | 63 loc | 🟡 | syntax only | env, API key, footage |
 | **7** Dedup | Collapse the same object across frames | 26 loc | 🟢 | replica: occlusion + false-positive cases pass | none (needs 6) |
 | **8** Aggregate | Three volume figures side by side | 17 loc | 🟢 | replica: living 3.99 m³, bedroom 4.84 m³ | none (needs 5, 7) |
 | **9** Evaluate | Score vs ground truth; bias split from spread | 52 loc | 🟡 | syntax only | env, `ground_truth.csv` |
 | **A** Appendix | Scale-error sensitivity simulation | 46 loc | ✅ | **executed from notebook source** | none |
+
+## Model harness — `poc/models/` and `poc/runner/`
+
+| Component | Does | Status | Verified by |
+|-----------|------|--------|-------------|
+| `models/base.py` | The contracts that make models swappable | ✅ | `Detection`, `nms` executed |
+| `models/registry.py` | 13 models, availability probing, **licence gate** | ✅ | CLI run; gate confirmed to refuse `yolo_world` |
+| `runner/pipeline.py` | Model-agnostic stage maths | ✅ | full assertion suite passes on synthetic geometry |
+| `runner/run_sweep.py` | Plan and execute the 14 combinations | 🟢 | dry-run plan verified; execution needs models |
+| `runner/compare.py` | Rank runs, pair anchor on/off | ✅ | run against 6 synthetic results |
+| `runner/run_combination.py` | One combination → one result JSON | 🟡 | CLI + licence gate verified; body needs models |
+| `models/detect_grounding_dino.py` | Baseline detector, Apache-2.0 | 🟡 | never executed |
+| `models/detect_owlv2.py` | Long-tail detector, Apache-2.0 | 🟡 | never executed |
+| `models/detect_sam3.py` | Native masks, gated weights | 🔴 | never executed; new API, expect churn |
+| `models/detect_rtdetr.py` | Real-time, licence-clean, fixed vocab | 🟡 | never executed |
+| `models/detect_yolo_world.py` | ~20× faster — **AGPL, cannot ship** | 🟡 | never executed |
+| `models/detect_yoloe.py` | Real-time + masks — **AGPL, cannot ship** | 🔴 | never executed; checkpoint names move |
+| `models/depth_moge2.py` | Default depth, MIT | 🟡 | never executed |
+| `models/depth_anything3.py` | Multi-view depth, Apache variant | 🔴 | never executed; HF integration is new |
+| `models/depth_unidepth.py` | Ceiling measurement — **CC BY-NC** | 🟡 | never executed |
+| `models/segment_sam2.py` | Box → mask upgrade | 🟡 | never executed; has a filled-box fallback |
+| `models/classify_claude.py` | Method A, three model sizes | 🟡 | never executed |
+
+## Two defects the tests caught
+
+Both real, both found before any footage existed, both fixed and verified.
+
+**1 · The door measurement was biased ~4% high.** `extent()` clips to 2nd–98th percentiles
+to reject depth outliers. The door anchor inherited that, but a door box is tight and has
+few outliers — so clipping was shaving ~4% off the true height, inflating the scale factor
+by 4% and the volume by ~13%. A systematic bias, in the exact term the anchor exists to
+remove. Fixed with wider percentiles for the door: **scale error 4.2% → 1.0%**, volume bias
+~13% → 3.1%.
+
+**2 · Cameras only see the front of things.** Not predicted. A camera never sees the back
+of a wardrobe, so a flat-fronted object's point cloud is a thin sheet with no measurable
+depth, and the computed volume collapsed toward zero. This is a hard limit of single-view
+geometry affecting most furniture. `resolve_dims()` now detects it, matches on the two
+observed dimensions, and adopts a class prior — verified to resolve a wardrobe-shaped
+surface to `wardrobe_double` at 0.60 m rather than 0.00 m.
+
+**The second one has a consequence to watch.** Every run records `class_prior_pct`. When
+depth comes from the cube table, Method B is using Method A's data and the two are no
+longer independent. If that fraction is high on real footage, pure geometric measurement
+is not viable from single-view capture — itself a headline finding. Tracked as gap **B8**.
 
 ### Why three stages are marked 🔴
 
@@ -76,6 +145,10 @@ assumptions that will only surface on a real frame:
 | `poc/requirements.txt` | Pinned dependency set | 🟡 | never installed |
 | `poc/setup.sh` | Creates `.venv` on Python 3.12 via uv, registers kernel | 🟡 | never run |
 | `poc/README.md` | Run order, stage table, what to look at first | ✅ | |
+| `ARCHITECTURE.md` | Diagrams, stage I/O, model table, worked example | ✅ | start here — explains Method A vs Method B |
+| `MODELS.md` | All 13 models, licences, the YOLO answer, how to sweep | ✅ | read before choosing a model |
+| `poc/combinations.json` | 14 one-factor-at-a-time presets, each with its question | ✅ | full grid would be 288 runs / ~19h |
+| `poc/results/` | One JSON per run | ⬜ | empty; gitignored |
 | `GAPS.md` | 22 open gaps in three decision groups | ✅ | A4 and A5 updated with measured sensitivity |
 | `poc/data/input/` | Drop zone for footage | ⬜ | **empty** |
 | `poc/data/output/` | Artefact output | ⬜ | empty |
@@ -133,9 +206,10 @@ In order. Nothing here is engineering.
 | # | Blocker | Action | Effort |
 |---|---------|--------|--------|
 | 1 | No Python environment | `./poc/setup.sh` — pins 3.12, pulls ~2.5 GB of torch | 20 min |
+| 1b | Optional models not installed | `python -m poc.models.registry` shows what's missing. SAM 3 needs `huggingface-cli login`; Ultralytics is AGPL and deliberately not installed | varies |
 | 2 | No room footage | Shoot one bedroom and one living room, slow pan, door visible in frame | 30 min |
 | 3 | No ground truth | Copy the template, laser-measure the same two rooms | half a day |
-| 4 | No API key | `export ANTHROPIC_API_KEY=...` — Arm A only; Arm B runs without it | 1 min |
+| 4 | No API key | `export ANTHROPIC_API_KEY=...` — Method A only; Method B runs without it | 1 min |
 
 Blockers 1, 2 and 4 get the pipeline running. **Blocker 3 is the one that makes the output
 mean anything** — it is gap **A1**, and without it stage 9 prints nothing.
@@ -166,7 +240,7 @@ The POC is finished when it can state, with evidence:
    3 properties.
 2. The same figures with the scale anchor **on and off** — the delta that justifies or
    kills the anchor work.
-3. A verdict on **Arm A vs Arm B**, so one can be dropped.
+3. A verdict on **Method A vs Method B**, so one can be dropped.
 4. A list of items the detector vocabulary misses entirely.
 
 None of those need more code than already exists. They need the four blockers cleared.

@@ -1,3 +1,21 @@
+# ============================================================================
+# FILE PURPOSE · Every Python package the POC pipeline needs.
+#
+# WHY IT MATTERS
+#   Two of these are load-bearing licence decisions, not just dependencies:
+#     - MoGe-2 is installed from source because it is MIT licensed and therefore
+#       shippable. UniDepthV2 scores better indoors but is CC BY-NC and could
+#       never go into a product (gap B2). Do not swap it in.
+#     - torch needs Python >= 3.10, which is why setup.sh pins 3.12 rather than
+#       using the system Python 3.9.
+#
+# HOW TO USE
+#   Do not pip install this by hand. Run ./setup.sh, which builds an isolated
+#   .venv on the right Python version and registers the Jupyter kernel.
+#
+# USED BY  setup.sh
+# ============================================================================
+
 # --- core ---
 numpy>=1.26
 pillow>=10.0
@@ -19,3 +37,30 @@ anthropic>=0.40
 # --- notebook ---
 jupyterlab>=4.0
 ipykernel>=6.29
+
+# ============================================================================
+# OPTIONAL EXTRAS — install only the ones whose combinations you want to run.
+# ============================================================================
+
+# --- SAM 3 detector / SAM 2 segmenter -------------------------------------
+# Already covered by transformers above, but SAM 3 weights are GATED on HF:
+#   huggingface-cli login     (after accepting the licence on the model page)
+
+# --- Depth Anything 3 -----------------------------------------------------
+# Covered by transformers. Use ONLY the Apache-2.0 variants:
+#   DA3METRIC-LARGE, DA3MONO-LARGE, DA3-BASE, DA3-SMALL
+# DA3-LARGE / GIANT / NESTED are CC BY-NC and cannot ship.
+
+# --- UniDepthV2 (RESEARCH CEILING ONLY, CC BY-NC — CANNOT SHIP) -----------
+# Uncomment only to measure what staying licence-clean costs us:
+# git+https://github.com/lpiccinelli-eth/UniDepth.git
+
+# --- YOLO-World / YOLOE (AGPL-3.0 — READ THIS BEFORE INSTALLING) ---------
+# Ultralytics is AGPL-3.0. Per Ultralytics' own published position, ANY use of
+# their models — including internal R&D, commercial or not — requires a paid
+# Enterprise Licence unless you open-source your ENTIRE project under AGPL-3.0.
+# AGPL also reaches SaaS deployment, so an API wrapper is not an escape.
+#
+# Deliberately NOT installed by default. Uncomment only if BJIT/NX have accepted
+# that position for comparison purposes:
+# ultralytics>=8.3

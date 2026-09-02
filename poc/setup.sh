@@ -1,6 +1,22 @@
 #!/usr/bin/env bash
-# One-time environment setup for the NX survey POC.
-# System python here is 3.9 which is too old for current torch, so we pin 3.12 via uv.
+# ============================================================================
+# FILE PURPOSE · One-time environment setup. Run this before anything else.
+#
+# WHAT IT DOES
+#   1. Installs uv (a fast Python package manager) if it is missing
+#   2. Creates poc/.venv on Python 3.12
+#   3. Installs everything in requirements.txt, including MoGe-2 from source
+#   4. Registers a Jupyter kernel called "NX Survey POC"
+#
+# WHY IT EXISTS
+#   The system Python on this machine is 3.9, which current torch will not run
+#   on. Rather than upgrading the system Python, we build an isolated 3.12
+#   environment so nothing else on the machine is affected.
+#
+# THIS IS BLOCKER #1 in STATUS.md — the pipeline cannot run until this succeeds.
+#
+# COST  ~20 minutes and ~2.5GB of disk, mostly torch.
+# ============================================================================
 set -euo pipefail
 cd "$(dirname "$0")"
 

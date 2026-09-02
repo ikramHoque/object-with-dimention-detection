@@ -1,13 +1,17 @@
 {
   "_meta": {
+    "file_purpose": "THE LOOKUP TABLE THAT TURNS A NAME INTO A VOLUME. This is Method A's entire brain, and Method B's final step too. 42 size classes, each with its packed volume.",
+    "why_it_matters": "Both commercial products in this market work this way: recognise the item, read its volume off a table like this one. Neither measures objects. So the accuracy of this file sets a ceiling on the accuracy of the whole system - no model can beat a wrong table.",
     "status": "PLACEHOLDER \u2014 replace with NX's own cube sheet (gap A3)",
+    "how_to_replace": "Ask NX for their own cube sheet and carton specifications (gap A3), then overwrite cube_ft3 / cube_m3 per class. Published industry sheets disagree with each other - the same item carries different values, and 'wardrobe' means a piece of furniture on one sheet and a hanging carton on another - so using NX's own is not optional.",
     "units": {
       "cube_ft3": "cubic feet, packed",
       "cube_m3": "cubic metres, packed",
       "typical_dims_m": "[width, depth, height] in metres, upright/unpacked"
     },
-    "note": "cube_ft3 values are indicative trade norms. typical_dims_m are used to map a geometric measurement to the nearest size class (Arm B -> Arm A bridge). Packed volume deliberately exceeds w*d*h for most items (padding, crating, voids).",
-    "ft3_to_m3": 0.0283168
+    "note": "cube_ft3 values are indicative trade norms. typical_dims_m are used to map a geometric measurement to the nearest size class (Method B -> Method A bridge). Packed volume deliberately exceeds w*d*h for most items (padding, crating, voids).",
+    "ft3_to_m3": 0.0283168,
+    "used_by": "poc/pipeline.ipynb stages 5, 6, 7, 8, 9 and the appendix"
   },
   "classes": {
     "sofa_2_seat": {

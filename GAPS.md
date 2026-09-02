@@ -1,5 +1,10 @@
 # NX Pre-Move Survey AI — Open Gaps
 
+> **FILE PURPOSE** — Everything still undecided or unbuilt, with a recommendation for each
+> so it closes with a decision rather than a discussion. Tick items off as they resolve.
+>
+> Map: `ARCHITECTURE.md` · Build state: `STATUS.md`
+
 A working checklist. Each gap has a recommendation so it can be closed with a decision
 rather than a discussion. Tick them off as they are resolved.
 
@@ -27,6 +32,8 @@ rather than a discussion. Tick them off as they are resolved.
 | **B5** | Which video frames to actually use | Us | ☐ open |
 | **B6** | No GPU on the dev machine | Us | ☐ open |
 | **B7** | Every room is different | Us | ☐ open |
+| **B8** | Cameras only see the front of things | Us | ☐ open |
+| **B9** | Ultralytics YOLO is AGPL-licensed | Us + NX | ☐ open |
 | **C1** | Contents of closed cupboards | — | ☐ parked |
 | **C2** | Rooms the customer never photographs | — | ☐ parked |
 | **C3** | Carton / box counts | — | ☐ parked |
@@ -92,7 +99,7 @@ disagreement can enter before any AI is involved.
 formal request of the project. Meanwhile bootstrap a placeholder table so the POC can
 run — one is included in `poc/cube_table.json`, clearly marked as provisional.
 
-**Blocks.** Arm A of the POC produces numbers that cannot be trusted until this is real.
+**Blocks.** Method A of the POC produces numbers that cannot be trusted until this is real.
 
 ---
 
@@ -112,7 +119,7 @@ incumbents have not.
 **Already measured.** The notebook appendix simulates this without any input data. At the
 depth model's published 8% scale error, mapping a measurement onto the nearest size class
 is right about **90%** of the time *if* the detector first narrows the candidates, and only
-**72%** if it searches the whole cube table. So Arm B is more viable than expected — but
+**72%** if it searches the whole cube table. So Method B is more viable than expected — but
 only as *detector plus geometry*, never geometry alone.
 
 ---
@@ -226,6 +233,58 @@ A result from one room says very little.
 
 **Recommendation.** Restrict the POC to two room types — bedroom and living room — across
 3–5 different properties. Fewer variables, and the numbers start to mean something.
+
+---
+
+### B8 · Cameras only see the front of things
+**The gap.** Found while testing the measurement code, not predicted. A camera never
+sees the back of a wardrobe. The depth model returns only the *visible surface*, so a
+flat-fronted object's point cloud is a thin sheet with no measurable depth — and the
+computed volume collapses toward zero.
+
+**Why it matters.** This is a hard limit of single-view geometry, not noise, and it
+affects most furniture: wardrobes, chests, bookcases, fridges, anything against a wall.
+Method B therefore **systematically under-measures depth** on exactly the items that
+carry the most volume.
+
+**What we did.** `resolve_dims()` detects the degenerate case (second principal axis
+carries under 12% of the variance), matches the object on the two dimensions that *were*
+observed — width and height — and adopts that class's typical depth from the cube table.
+Verified: a wardrobe-shaped flat surface resolves to `wardrobe_double` with a 0.60 m
+depth instead of a 0.00 m one.
+
+**The catch worth watching.** Every run records `class_prior_pct`. If that is high,
+**Method B is getting its depth from the cube table, which is Method A's data** — so the
+two methods are no longer independent and the comparison means less than it appears.
+The runner prints a warning above 60%.
+
+**Open question for the POC.** Measure that percentage on real footage. If it is high,
+the honest conclusion is that pure geometric measurement is not viable from single-view
+capture, which strengthens the case for Method A and for multi-view depth.
+
+---
+
+### B9 · Ultralytics YOLO is AGPL-licensed
+**The gap.** YOLO-World and YOLOE are the fastest open-vocabulary detectors available —
+roughly 20x faster than Grounding DINO at a fifth of the size. Both are normally run
+through the Ultralytics package, which is **AGPL-3.0**.
+
+**Why it matters.** Per Ultralytics' own published position, *any* use of their models —
+explicitly including R&D inside a company, commercial or not — requires a paid Enterprise
+Licence unless the entire project is open-sourced under AGPL-3.0. AGPL is stricter than
+GPL and reaches SaaS deployment, so exposing it only as an API is not an escape.
+
+**Options.**
+- (a) Don't use it. Grounding DINO and OWLv2 are Apache 2.0 and open-vocabulary.
+- (b) Use RT-DETR (Apache 2.0) for speed, accepting a fixed vocabulary.
+- (c) Buy the Enterprise Licence, if the speed proves worth it.
+- (d) Run it for comparison only, and never ship it.
+
+**Recommendation.** Default to (a). Registered `commercial_ok=False`, so the runner
+refuses these models unless `--allow-noncommercial` is passed, and tags such results
+`shippable=false`. Decide (c) only if the sweep shows the speed advantage is large AND
+NX's volume makes it matter. Get NX's legal view before even the comparison run, since
+Ultralytics' position covers internal R&D.
 
 ---
 
