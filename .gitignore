@@ -35,6 +35,8 @@ poc/ground_truth.csv
 # Sweep output. One JSON per run, can hold thousands of measurement rows.
 poc/results/*.json
 !poc/results/.gitkeep
+poc/rnd/results/*.json
+!poc/rnd/results/.gitkeep
 
 # --- model weights & caches ---
 *.pt

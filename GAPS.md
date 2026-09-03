@@ -44,6 +44,7 @@ rather than a discussion. Tick them off as they are resolved.
 | **C8** | Which back-office system to feed | NX | ☐ parked |
 | **C9** | Self-pack vs full-pack | NX | ☐ parked |
 | **C10** | No baseline for NX's current process | NX | ☐ parked |
+| **C11** | Should we train our own detector? | Us + NX | ☐ parked |
 
 ---
 
@@ -304,6 +305,38 @@ These are real and already understood. They are listed so they are not rediscove
 | **C8 · Which back-office system to feed** | Unknown to us. Commonly a large source of unplanned effort. |
 | **C9 · Self-pack vs full-pack** | Changes carton counts materially. Competitors model it explicitly as CP and PBO. Cheap to handle early, expensive to retrofit. |
 | **C10 · No baseline for NX's current process** | We do not know their current error, survey volume, or cost per survey. Every target needs that denominator. |
+
+---
+
+### C11 · Should we train our own detector?
+**The gap.** Every detector in the POC is used off the shelf, prompted with words. The
+alternative is to annotate NX's own furniture and fine-tune a detector on exactly our
+classes. A model trained on our data would very likely beat any open-vocabulary model on
+our classes, and run far faster.
+
+**What it would cost.** Roughly 500–1,500 labelled instances per class for usable
+performance. For our ~26 detector prompts that is **~26,000 boxes minimum**, or about
+**110–215 hours of annotation** at 15–30 seconds each — before sourcing photographs of
+enough different UK homes, which is itself gated on consent and GDPR (**C5**).
+
+**What it would NOT fix.** The cube table has 42 *size* classes, including
+`mattress_double` vs `mattress_king` and `sofa_2_seat` vs `sofa_3_seat`. Those pairs look
+nearly identical; the difference is size, not appearance, and a detector has no scale
+reference. You would train ~26 coarse classes and still need measurement or the classifier
+for the size refinement.
+
+**The licence trap — this is the part that decides the architecture.** Fine-tuned weights
+are derivative works. **A model you train with Ultralytics is still AGPL-3.0, including the
+weights.** Annotating our own data and training our own YOLO does *not* escape the licence:
+our data, our annotation budget, their terms.
+
+**Recommendation.** If we ever do this, fine-tune **RT-DETR** (Apache 2.0, real-time,
+trainable through HuggingFace `transformers`) — never an Ultralytics model. Same speed
+benefit, no encumbrance.
+
+**When to revisit.** Only after the POC shows (a) which classes the off-the-shelf detectors
+actually miss, and (b) that survey volume justifies a two-month annotation project. Right
+now that is unknown, which is exactly why this is parked rather than planned.
 
 ---
 
