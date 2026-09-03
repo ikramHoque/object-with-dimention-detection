@@ -24,6 +24,12 @@ WHY IT'S WORTH A COMPARISON RUN
 #  AND the metric one. Do not casually switch to DA3-LARGE for "better numbers" —
 #  it cannot ship.
 ##############################################################################
+
+HOW TO RUN
+    Not an entry point. This adapter is selected by key:
+        --depth da3_metric
+    passed to run_combination.
+    Confirm it is installed:  python -m poc.models.registry
 """
 from __future__ import annotations
 import numpy as np

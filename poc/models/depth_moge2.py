@@ -17,6 +17,12 @@ WHAT THAT ERROR MEANS FOR US
     across objects. That is the entire reason the scale-anchor stage exists.
 
 LICENCE  MIT (DINOv2 components Apache 2.0) — commercial use fine
+
+HOW TO RUN
+    Not an entry point. This adapter is selected by key:
+        --depth moge2
+    passed to run_combination.
+    Confirm it is installed:  python -m poc.models.registry
 """
 from __future__ import annotations
 import numpy as np

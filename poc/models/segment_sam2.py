@@ -16,6 +16,12 @@ WHY THIS EXISTS — AND WHY IT MAY MATTER MORE THAN THE DETECTOR CHOICE
     that is worth the extra pass is exactly the kind of thing the sweep answers.
 
 LICENCE  Apache 2.0 — commercial use fine
+
+HOW TO RUN
+    Not an entry point. This adapter is selected by key:
+        --segmenter sam2
+    passed to run_combination.
+    Confirm it is installed:  python -m poc.models.registry
 """
 from __future__ import annotations
 from typing import Sequence

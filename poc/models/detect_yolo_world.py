@@ -31,6 +31,12 @@ ALTERNATIVE
     If the speed is what you want but AGPL is not acceptable, RT-DETR is Apache 2.0
     and real-time — see detect_rtdetr.py. It is closed-vocabulary, which is the
     trade.
+
+HOW TO RUN
+    Not an entry point. This adapter is selected by key:
+        --detector yolo_world
+    passed to run_research_ceiling (AGPL - quarantined).
+    Confirm it is installed:  python -m poc.models.registry
 """
 from __future__ import annotations
 from typing import Sequence

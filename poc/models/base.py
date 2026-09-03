@@ -18,6 +18,10 @@ WHAT'S HERE
     Segmenter      protocol: .refine(image, boxes) -> masks   (box -> mask upgrade)
 
 USED BY  every file in poc/models/, and poc/runner/pipeline.py
+
+HOW TO RUN
+    Not an entry point - this defines the contracts and shared helpers.
+    To see what implements them:  python -m poc.models.registry
 """
 from __future__ import annotations
 
@@ -133,8 +137,25 @@ class Segmenter(Protocol):
 
 
 def pick_device():
-    """Best available torch device. Imported lazily so this module stays light."""
+    """Best available torch device, unless overridden.
+
+    Set NX_DEVICE to force one:  export NX_DEVICE=cpu
+
+    Why the override exists: on Apple Silicon some PyTorch ops have no Metal kernel.
+    Usually PYTORCH_ENABLE_MPS_FALLBACK=1 handles it by running those on the CPU, but
+    a few still hard-fail. Forcing cpu for one model is faster than debugging Metal.
+    See RUN-LOCAL.md.
+    """
+    import os
     import torch
+    forced = os.environ.get("NX_DEVICE", "").strip().lower()
+    if forced in ("cpu", "cuda", "mps"):
+        if forced == "cuda" and not torch.cuda.is_available():
+            print("  ! NX_DEVICE=cuda but no CUDA device; falling back to auto")
+        elif forced == "mps" and not torch.backends.mps.is_available():
+            print("  ! NX_DEVICE=mps but MPS unavailable; falling back to auto")
+        else:
+            return torch.device(forced)
     if torch.cuda.is_available():
         return torch.device("cuda")
     if torch.backends.mps.is_available():

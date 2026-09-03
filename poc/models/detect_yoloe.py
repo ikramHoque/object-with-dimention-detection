@@ -17,6 +17,12 @@ WHY INCLUDE IT
 #  Registered commercial_ok=False. Comparison use only; not shippable without a
 #  paid Enterprise Licence. See detect_yolo_world.py for the full explanation.
 ##############################################################################
+
+HOW TO RUN
+    Not an entry point. This adapter is selected by key:
+        --detector yoloe
+    passed to run_research_ceiling (AGPL - quarantined).
+    Confirm it is installed:  python -m poc.models.registry
 """
 from __future__ import annotations
 from typing import Sequence

@@ -23,6 +23,12 @@ WHAT IT IS NOT USED FOR
 
 MODELS  Sonnet 5 is the default. Opus 5 for hard rooms, Haiku 4.5 for cheap triage —
         comparing the three is one axis of the sweep.
+
+HOW TO RUN
+    Not an entry point. This adapter is selected by key:
+        --classifier claude_sonnet5
+    passed to run_combination.
+    Confirm it is installed:  python -m poc.models.registry
 """
 from __future__ import annotations
 from typing import Sequence

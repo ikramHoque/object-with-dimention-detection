@@ -13,6 +13,12 @@ WHY INCLUDE IT
     loses on common-object benchmarks.
 
 LICENCE  Apache 2.0 — commercial use fine
+
+HOW TO RUN
+    Not an entry point. This adapter is selected by key:
+        --detector owlv2
+    passed to run_dataset_eval or run_combination.
+    Confirm it is installed:  python -m poc.models.registry
 """
 from __future__ import annotations
 from typing import Sequence

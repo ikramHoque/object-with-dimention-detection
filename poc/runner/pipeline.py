@@ -18,6 +18,11 @@ WHAT'S HERE
     vol_from_inventory  inventory -> cubic metres                     (stage 8)
 
 USED BY  poc/runner/run_combination.py, poc/pipeline.ipynb
+
+HOW TO RUN
+    Not an entry point - this is a library of stage functions.
+    It is imported by run_combination.py, run_dataset_eval.py and the notebook.
+    To run the pipeline:  python -m poc.runner.run_combination --help
 """
 from __future__ import annotations
 

@@ -15,6 +15,12 @@ WHY IT MATTERS
 
 USED BY  poc/runner/*.py
 CLI      python -m poc.models.registry        # prints the catalogue + availability
+
+HOW TO RUN
+    python -m poc.models.registry
+        Prints all 13 models: licence, ship/no-ship, open or fixed vocabulary,
+        whether it returns masks, and whether it is installed.
+    Run this first when something says "not installed".
 """
 from __future__ import annotations
 

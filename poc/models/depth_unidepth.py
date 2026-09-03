@@ -22,6 +22,12 @@ WHAT IT DOES
 #  --allow-noncommercial, and results are tagged so they can never be mistaken
 #  for a shippable configuration.
 ##############################################################################
+
+HOW TO RUN
+    Not an entry point. This adapter is selected by key:
+        --depth unidepth2
+    passed to run_research_ceiling (CC BY-NC - quarantined).
+    Confirm it is installed:  python -m poc.models.registry
 """
 from __future__ import annotations
 import numpy as np

@@ -25,8 +25,11 @@ one sofa through both routes if that helps.
 
 ## Setup
 
+**Full step-by-step for an M1 Mac, with troubleshooting: `../RUN-LOCAL.md`.**
+
 ```bash
 ./setup.sh                               # ~20 min, pulls ~2.5GB of torch
+export PYTORCH_ENABLE_MPS_FALLBACK=1     # REQUIRED on Apple Silicon
 export ANTHROPIC_API_KEY=sk-ant-...      # Method A only; Method B runs without it
 ```
 

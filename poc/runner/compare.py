@@ -20,6 +20,15 @@ USAGE
     python -m poc.runner.compare
     python -m poc.runner.compare --room BED01
     python -m poc.runner.compare --method b --sort abs
+
+HOW TO RUN
+    python -m poc.runner.compare
+        Rank every result in poc/results/ by bias.
+    python -m poc.runner.compare --room BED01
+        Only that room.
+    python -m poc.runner.compare --method b --sort abs
+        Rank Method B instead, sorted by absolute error.
+    Run this AFTER run_sweep or several run_combination calls.
 """
 from __future__ import annotations
 

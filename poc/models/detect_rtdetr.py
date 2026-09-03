@@ -24,6 +24,12 @@ VOCABULARY GAP TO WATCH
     prompts a closed-vocab model could not even attempt, so the comparison stays fair.
 
 LICENCE  Apache 2.0 — commercial use fine
+
+HOW TO RUN
+    Not an entry point. This adapter is selected by key:
+        --detector rtdetr
+    passed to run_dataset_eval or run_combination.
+    Confirm it is installed:  python -m poc.models.registry
 """
 from __future__ import annotations
 from typing import Sequence

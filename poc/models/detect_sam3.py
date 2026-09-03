@@ -22,6 +22,12 @@ SETUP  Weights are gated on Hugging Face — accept the licence and `huggingface
 
 LICENCE  Meta custom licence. Commercial use permitted; restrictions cover military,
          ITAR, nuclear and weapons applications, none of which apply to removals.
+
+HOW TO RUN
+    Not an entry point. This adapter is selected by key:
+        --detector sam3
+    passed to run_dataset_eval or run_combination.
+    Confirm it is installed:  python -m poc.models.registry
 """
 from __future__ import annotations
 from typing import Sequence

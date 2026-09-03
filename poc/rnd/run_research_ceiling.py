@@ -28,6 +28,14 @@ USAGE
     python -m poc.rnd.run_research_ceiling --input bedroom.mp4 --room BED01 --dry-run
     python -m poc.rnd.run_research_ceiling --input bedroom.mp4 --room BED01 \
         --i-have-legal-clearance
+
+HOW TO RUN
+    python -m poc.rnd.run_research_ceiling --input bedroom.mp4 --room BED01 --dry-run
+        Show the plan and the licence warnings. Runs nothing.
+    python -m poc.rnd.run_research_ceiling --input bedroom.mp4 --room BED01 \
+        --i-have-legal-clearance
+        Actually run the non-shippable models. Requires the flag by design.
+    Output goes to poc/rnd/results/, never poc/results/.
 """
 from __future__ import annotations
 

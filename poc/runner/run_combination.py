@@ -28,6 +28,15 @@ LICENCE GATE
     Refuses any combination containing a non-commercial model unless
     --allow-noncommercial is passed. Results from such a run are permanently tagged
     shippable=false so they can never be mistaken for a viable configuration.
+
+HOW TO RUN
+    python -m poc.runner.run_combination --input bedroom.mp4 --room BED01 \
+        --detector grounding_dino --depth moge2 --classifier claude_sonnet5
+        One combination on one room video. Writes one JSON to poc/results/.
+    Add --no-anchor for the key experiment (same config, scale anchor off).
+    Add --segmenter sam2 to upgrade boxes to masks.
+    Add --classifier none to skip Method A entirely.
+    See every option:  python -m poc.runner.run_combination --help
 """
 from __future__ import annotations
 

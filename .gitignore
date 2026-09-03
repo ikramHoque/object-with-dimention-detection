@@ -24,9 +24,12 @@ env/
 # --- POC data ---
 # Footage of real homes is personal data under UK GDPR and must never be committed.
 # A house inventory plus a move date is also a target list. See GAPS.md C5 / C6.
-poc/data/input/*
-poc/data/output/*
+# Ignore ALL of poc/data — footage, dataset downloads, extracted frames.
+# The HomeObjects-3K download alone is ~390MB of images.
+poc/data/**
+!poc/data/input/
 !poc/data/input/.gitkeep
+!poc/data/output/
 !poc/data/output/.gitkeep
 
 # Ground truth can carry property addresses — keep it local.

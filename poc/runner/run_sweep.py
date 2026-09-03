@@ -21,6 +21,14 @@ USAGE
 NOTE
     A failing run does not stop the sweep. Failures are collected and reported at the
     end, because a missing gated checkpoint should not cost you the other twelve runs.
+
+HOW TO RUN
+    python -m poc.runner.run_sweep --input bedroom.mp4 --room BED01 --dry-run
+        Print the 14-run plan with licence and install warnings. Runs nothing.
+    python -m poc.runner.run_sweep --input bedroom.mp4 --room BED01 --skip-unavailable
+        Execute the plan, skipping runs whose models are not installed.
+    python -m poc.runner.run_sweep --input bedroom.mp4 --only anchor_off,det_sam3
+        Just those two runs.
 """
 from __future__ import annotations
 
