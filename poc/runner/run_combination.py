@@ -43,6 +43,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -60,6 +61,13 @@ def load_tables():
     cube = json.loads((ROOT / "cube_table.json").read_text())
     vocab = json.loads((ROOT / "detect_vocab.json").read_text())["prompts"]
     return cube, cube["classes"], vocab
+
+
+def safe_name(s: str) -> str:
+    """A room name that is safe in a filename. Real folders are called things like
+    "living room (front)", and those characters make results awkward to handle from
+    a shell. The readable name is preserved inside the JSON and the CSV."""
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", s).strip("._-") or "room"
 
 
 def load_truth(room: str | None):
@@ -154,6 +162,15 @@ def main(argv=None):
         print(f"input not found: {a.input}  (looked in {disp(in_dir)})")
         return 1
 
+    # The ROOM this input belongs to. A sub-folder of data/input IS a room and its
+    # name is the room name, so `--input lounge/north.jpg` is filed under "lounge",
+    # not "north". Every output carries this: the JSON, the CSV, the annotated
+    # frame and the filenames.
+    room_name = P.room_name_for(src, in_dir)
+    # The folder name doubles as the ground_truth.csv room_id, because they are the
+    # same thing — the room. --room overrides it for a differently-keyed sheet.
+    gt_room = a.room or room_name
+
     # One timestamp for the whole run, set before anything is written, so the
     # results JSON and the annotated-frame folder always share the same stem.
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -161,18 +178,8 @@ def main(argv=None):
                           classifier_key or "nocls",
                           "noanchor" if a.no_anchor else "anchor"])
     print(f"\n=== {combo_id} ===")
+    print(f"room  {room_name}")
     print(f"input {src.name}   shippable={shippable}")
-
-    timings: dict[str, float] = {}
-
-    # ---- stage 1 ---------------------------------------------------------
-    t0 = time.time()
-    sampled, frames = P.load_keyframes(src, max_frames=a.max_frames)
-    timings["ingest_s"] = round(time.time() - t0, 2)
-    print(f"stage 1  {len(frames)}/{len(sampled)} frames kept  ({timings['ingest_s']}s)")
-    if not frames:
-        print("no usable frames")
-        return 1
 
     # Thresholds reach the adapter here. Before this they did not: the detector was
     # built with no arguments, so --box-th had nowhere to go and every run silently
@@ -186,98 +193,34 @@ def main(argv=None):
     dep = registry.build(a.depth)
     seg = registry.build(a.segmenter) if a.segmenter else None
 
-    # ---- stage 2 detection ----------------------------------------------
-    t0 = time.time()
-    for f in frames:
-        f["dets"] = det.detect(f["img"], prompts)
-        if seg is not None:
-            boxes = [d.box for d in f["dets"]]
-            for d, m in zip(f["dets"], seg.refine(f["img"], boxes)):
-                d.mask = m
-    timings["detect_s"] = round(time.time() - t0, 2)
-    n_det = sum(len(f["dets"]) for f in frames)
-    unreachable = det.unreachable(prompts) if hasattr(det, "unreachable") else []
-    print(f"stage 2  {n_det} detections  ({timings['detect_s']}s)")
+    # ---- stages 1-5 ------------------------------------------------------
+    # One shared implementation, in pipeline.py, so this and every pipeline
+    # notebook run byte-identical arithmetic. See measure_room's docstring for
+    # the bug that two copies had already caused.
+    M = P.measure_room(src, det, dep, seg, prompts=prompts, classes=classes,
+                       vocab=vocab, max_frames=a.max_frames,
+                       use_anchor=not a.no_anchor, log=print)
+    frames, rows, timings = M["frames"], M["rows"], M["timings"]
+    if not frames:
+        print("no usable frames")
+        return 1
+    sampled, scale, scale_src = M["sampled"], M["scale"], M["scale_src"]
+    factors, whys, n_det = M["factors"], M["whys"], M["n_det"]
+    unreachable, masked, prior = M["unreachable"], M["masked"], M["prior"]
+    all_dets, reasons = M["all_dets"], M["reasons"]
+    lab_missing, lab_fixed = M["lab_missing"], M["lab_fixed"]
+
     if unreachable:
-        print(f"         closed vocabulary — cannot even attempt: {len(unreachable)} prompts")
+        print(f"         closed vocabulary — cannot even attempt: "
+              f"{len(unreachable)} prompts")
 
-    # ---- stage 3 depth ---------------------------------------------------
-    t0 = time.time()
-    for f in frames:
-        f["depth"] = dep.infer(f["img"])
-    timings["depth_s"] = round(time.time() - t0, 2)
-    print(f"stage 3  depth done  ({timings['depth_s']}s)")
-
-    # ---- stage 4 scale anchor -------------------------------------------
-    factors, whys = [], []
-    for f in frames:
-        fac, why = P.door_scale(f["dets"], f["depth"])
-        whys.append(why)
-        if fac:
-            factors.append(fac)
-    import numpy as np
-    if a.no_anchor or not factors:
-        scale = 1.0
-        scale_src = "anchor disabled" if a.no_anchor else "no door found"
-    else:
-        scale = float(np.median(factors))
-        scale_src = f"door anchor, median of {len(factors)} frames"
-    print(f"stage 4  SCALE={scale:.4f}  [{scale_src}]")
-
-    # ---- stage 5 Method B -----------------------------------------------
-    t0 = time.time()
-    rows = []
-    for f in frames:
-        # (Detection, row) pairs per frame, so report.annotate() can put the
-        # measured dimensions on the right box. Built here rather than matched
-        # up later by index — row order and detection order diverge as soon as
-        # a box is skipped.
-        f["pairs"] = []
-        for d in f["dets"]:
-            # Exact match, not `"door" in d.label`. Labels are normalised to a
-            # single vocabulary prompt now (see normalise_label), and the old
-            # substring test matched the raw span 'sofa wardrobe door chair',
-            # throwing away a real sofa as if it were the anchor. 'door' is the
-            # only door-like prompt in the 26, so equality is sufficient.
-            if d.label == "door":
-                continue
-            e = P.extent(f["depth"], d, scale=scale)
-            if not e:
-                continue
-            # resolve_dims handles the single-view depth limit: a camera never sees
-            # the back of a wardrobe, so for flat-fronted objects the depth extent is
-            # unobservable and a class prior is substituted. See gap B8.
-            # P.allowed_classes narrows the size-class search as tightly as the
-            # label honestly permits — including the union of a fused span's
-            # candidates. The notebook calls the same function, so the two cannot
-            # drift. See its docstring for the coffee-table case that motivated it.
-            dims, cls, dist, depth_src = P.resolve_dims(
-                e, classes, P.allowed_classes(d, vocab))
-            row = dict(t=f["t"], det_label=d.label, score=round(d.score, 3),
-                       **{k: (round(v, 4) if isinstance(v, float) else v)
-                          for k, v in dims.items()},
-                       mapped_class=cls, map_dist=round(dist, 3),
-                       depth_source=depth_src)
-            rows.append(row)
-            f["pairs"].append((d, row))
-    timings["measure_s"] = round(time.time() - t0, 2)
-
-    # Label quality. An open-vocabulary detector returns matched text, not a
-    # class id, so a box can arrive unlabelled ('') or fused from several
-    # prompts. normalise_label() repairs what it can; what it cannot repair
-    # would otherwise widen the size-class search from 2-3 candidates to all 42
-    # and cost ~18 points of accuracy with nothing in the output to show it.
-    # So it is counted here and reported in the JSON.
-    all_dets = [d for f in frames for d in f["dets"]]
-    reasons: dict[str, int] = {}
-    for d in all_dets:
-        r = getattr(d, "label_reason", "") or "clean"
-        reasons[r] = reasons.get(r, 0) + 1
-    lab_missing = sum(1 for d in all_dets if not d.label)
-    lab_fixed = reasons.get("narrowed", 0)
+    # Label quality. An open-vocabulary detector returns matched text, not a class
+    # id, so a box can arrive unlabelled ('') or fused from several prompts.
+    # normalise_label() repairs what it can; what it cannot repair would otherwise
+    # widen the size-class search from 2-3 candidates to all 42.
     if all_dets:
         n = len(all_dets)
-        print(f"         labels: " + ", ".join(f"{v} {k}" for k, v in sorted(reasons.items()))
+        print("         labels: " + ", ".join(f"{v} {k}" for k, v in sorted(reasons.items()))
               + f" (of {n})")
         # The two failures need OPPOSITE corrections, which is why the reason is
         # carried all the way here instead of just a count of bad labels.
@@ -294,17 +237,14 @@ def main(argv=None):
             print(f"         ! {reasons['unmatched']} labels matched no prompt at all — "
                   "check detect_vocab.json against the model's vocabulary.")
 
-    masked = sum(1 for r in rows if r.get("used_mask"))
-    prior = sum(1 for r in rows if r.get("depth_source") == "class_prior")
-    print(f"stage 5  {len(rows)} objects measured, {masked} using masks")
     if rows:
         pct = prior / len(rows) * 100
         print(f"         depth unobservable on {prior}/{len(rows)} ({pct:.0f}%) "
               f"— class prior used")
         if pct > 60:
             print("         ! Most depths came from the cube table, not from geometry.")
-            print("           Method B is leaning on Method A's data. Weigh the comparison "
-                  "accordingly.")
+            print("           Method B is leaning on Method A's data. Weigh the "
+                  "comparison accordingly.")
 
     # ---- stage 6 Method A -----------------------------------------------
     per_frame, cost, usage_tot = [], 0.0, dict(input_tokens=0, output_tokens=0)
@@ -337,7 +277,10 @@ def main(argv=None):
     # ---- the human-readable half -----------------------------------------
     # The JSON above is for compare.py. A person deciding whether to trust these
     # numbers needs to SEE the boxes and read a table, which is what this is.
-    stem = f"{combo_id}__{src.stem}__{stamp}"
+    # Room first, then the timestamp. The timestamp means a re-run ADDS a report
+    # rather than replacing the last one, so you can compare two settings after the
+    # fact instead of losing the earlier answer.
+    stem = f"{combo_id}__{safe_name(room_name)}__{stamp}"
     vis_dir = res_dir / stem
     if not a.no_vis:
         imgs = R.write_visuals(frames, vis_dir, scale=scale,
@@ -350,7 +293,7 @@ def main(argv=None):
     print("\n".join(R.item_lines(rows, inv_measured, classes)))
 
     # ---- stage 9 scoring -------------------------------------------------
-    truth, truth_dims = load_truth(a.room)
+    truth, truth_dims = load_truth(gt_room)
     scores = {}
     if truth:
         if inv_recognised:
@@ -361,7 +304,7 @@ def main(argv=None):
             print(f"stage 9  {k}: bias {v['vol_bias_pct']}%  abs {v['vol_abs_err_pct']}%  "
                   f"P {v['precision']} R {v['recall']}")
     else:
-        print("stage 9  no ground truth for this room — not scored")
+        print(f"stage 9  no ground_truth.csv row for room '{gt_room}' — not scored")
 
     # ---- write the result ------------------------------------------------
     out = {
@@ -370,7 +313,9 @@ def main(argv=None):
         "timestamp": stamp,
         "shippable": shippable,
         "input": src.name,
-        "room": a.room,
+        "room": room_name,
+        "room_source": "folder name" if a.room is None else "--room",
+        "ground_truth_room": gt_room,
         "config": {
             "detector": a.detector, "depth": a.depth, "segmenter": a.segmenter,
             "classifier": classifier_key, "scale_anchor": not a.no_anchor,
@@ -412,7 +357,7 @@ def main(argv=None):
         "timings": timings,
     }
     res_dir.mkdir(parents=True, exist_ok=True)
-    fn = res_dir / f"{combo_id}__{src.stem}__{stamp}.json"
+    fn = res_dir / f"{stem}.json"
     fn.write_text(json.dumps(out, indent=2))
     print(f"\nwrote {disp(fn)}")
     return 0

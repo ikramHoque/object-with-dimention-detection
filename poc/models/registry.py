@@ -76,7 +76,10 @@ def info(key: str) -> ModelInfo:
     return mod.INFO
 
 
-def build(key: str, **overrides):
+_BUILT: dict = {}
+
+
+def build(key: str, *, fresh: bool = False, **overrides):
     """Instantiate an adapter. Still does not load weights — that happens on first use.
 
     Unsupported keyword arguments are DROPPED WITH A WARNING rather than raising.
@@ -85,6 +88,16 @@ def build(key: str, **overrides):
     because it has no text. Raising would force every caller to special-case each
     model; silently ignoring would let a threshold you thought you set do nothing.
     So it is dropped, loudly.
+
+    WITHIN ONE PROCESS the same (key, kwargs) returns the SAME adapter. Grounding
+    DINO's first forward pass costs ~370 s and every one after ~2.7 s, so rebuilding
+    per room would make `run.py --all` over 5 rooms a 30-minute job instead of a
+    7-minute one. The cache is what makes multi-room runs practical.
+
+    Caveat: because the same object comes back, a threshold you MUTATE on an adapter
+    stays mutated for the next caller asking for those same kwargs. Code that
+    temporarily changes `det.box_th` must restore it — the notebook sweep cells do.
+    Pass fresh=True for a genuinely new instance.
     """
     import inspect
     mod_name, cls_name = _SPECS[key]
@@ -96,9 +109,23 @@ def build(key: str, **overrides):
     except (TypeError, ValueError):
         accepted = set(kwargs)
     dropped = sorted(k for k in kwargs if k not in accepted)
+    used = {k: v for k, v in kwargs.items() if k in accepted}
+
+    # Only the kwargs the class actually accepts identify the instance; a dropped
+    # one changes nothing about it, so it must not split the cache.
+    try:
+        memo = (key, tuple(sorted((k, v) for k, v in used.items())))
+    except TypeError:          # an unhashable kwarg — do not cache, just build
+        memo = None
+    if not fresh and memo is not None and memo in _BUILT:
+        return _BUILT[memo]
+
     for k in dropped:
         print(f"  ! {key} takes no '{k}' — ignoring it (value {kwargs[k]!r})")
-    return cls(**{k: v for k, v in kwargs.items() if k in accepted})
+    obj = cls(**used)
+    if not fresh and memo is not None:
+        _BUILT[memo] = obj
+    return obj
 
 
 def _probe_module(extra: str) -> str:

@@ -5,6 +5,7 @@ FILE PURPOSE
 HOW TO RUN
     python -m poc.pipelines.grounding_dino__moge2__haiku45.run --input my_room.jpg
     python -m poc.pipelines.grounding_dino__moge2__haiku45.run                     # if data/input has one thing
+    python -m poc.pipelines.grounding_dino__moge2__haiku45.run --all               # every input, one room each
     python -m poc.pipelines.grounding_dino__moge2__haiku45.run --input my_room.jpg --box-th 0.20
 
     Input comes from   poc/pipelines/grounding_dino__moge2__haiku45/data/input/

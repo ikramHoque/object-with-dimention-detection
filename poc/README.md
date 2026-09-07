@@ -69,9 +69,10 @@ pipelines and differs only in which models it names, so it lives in one place â€
 source .venv/bin/activate
 export PYTORCH_ENABLE_MPS_FALLBACK=1
 
-cp my_room.jpg pipelines/grounding_dino__moge2/data/input/
-python -m poc.pipelines.grounding_dino__moge2.run                 # one shot
-jupyter lab pipelines/grounding_dino__moge2/notebook.ipynb        # stage by stage
+mkdir -p pipelines/grounding_dino__moge2__sonnet5/data/input/lounge
+cp ~/photos/lounge/*.jpg pipelines/grounding_dino__moge2__sonnet5/data/input/lounge/
+python -m poc.pipelines.grounding_dino__moge2__sonnet5.run                 # one shot
+jupyter lab pipelines/grounding_dino__moge2__sonnet5/notebook.ipynb        # stage by stage
 ```
 
 Run from the repo root, not from here, so `poc.` imports resolve.

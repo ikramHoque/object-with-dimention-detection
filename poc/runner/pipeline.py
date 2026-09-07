@@ -10,7 +10,10 @@ WHY IT MATTERS
     models, not between two slightly different pipelines someone copy-pasted.
 
 WHAT'S HERE
-    load_keyframes   video/image -> sharp frames                      (stage 1)
+    discover_rooms   input folder -> the rooms in it, named           (stage 1)
+    room_name_for    any --input -> which room it belongs to          (stage 1)
+    load_keyframes   video/image/folder -> sharp frames               (stage 1)
+    measure_room     ONE room, all of stages 1-5, shared by every caller
     door_scale       correction factor from a known-height door       (stage 4)
     extent           3D size of one object, mask-aware                (stage 5)
     nearest_class    measured size -> closest cube-table entry        (stage 5)
@@ -50,6 +53,79 @@ def sharpness(gray) -> float:
     """Variance of the Laplacian. Low = blurry."""
     import cv2
     return float(cv2.Laplacian(gray, cv2.CV_64F).var())
+
+
+def discover_rooms(in_dir: Path) -> list[dict]:
+    """What rooms are in an input folder, and what each one is called.
+
+    THE RULE: a SUB-FOLDER IS A ROOM, and its folder name IS the room name.
+
+        data/input/
+            bedroom/        -> room "bedroom"  (every image inside is a view of it)
+                north.jpg
+                south.jpg
+            lounge/         -> room "lounge"
+            kitchen/        -> room "kitchen"
+            stray.jpg       -> room "stray"    (a loose file is a one-photo room)
+
+    So four folders means a four-room house, and the room name travels with every
+    number the pipeline produces — into the JSON, the CSV, the annotated frame and
+    the filename.
+
+    WHY FOLDERS AND NOT LOOSE FILES. Stages 7-8 count each item once PER ROOM: a
+    sofa photographed from three angles is one sofa. That only works if the code
+    knows which photographs belong together, and a folder is how you tell it. Eight
+    loose photos of eight different rooms would otherwise merge into one inventory
+    for a house that does not exist.
+
+    A loose file is still accepted, as one room named after the file, because
+    checking a single photograph is a thing you do constantly while tuning.
+
+    Returns dicts with name/path/kind/n_images, ordered folders-first then by name,
+    so the listing you see matches the order things run in.
+    """
+    if not in_dir.is_dir():
+        return []
+    rooms = []
+    for q in sorted(in_dir.iterdir(), key=lambda x: x.name.lower()):
+        if q.name.startswith(".") or q.name == "__pycache__":
+            continue
+        if q.is_dir():
+            n = sum(1 for f in q.iterdir() if f.suffix.lower() in IMG_EXT)
+            if n:
+                rooms.append(dict(name=q.name, path=q, kind="folder", n_images=n))
+        elif q.suffix.lower() in IMG_EXT:
+            rooms.append(dict(name=q.stem, path=q, kind="photo", n_images=1))
+        elif q.suffix.lower() in VID_EXT:
+            rooms.append(dict(name=q.stem, path=q, kind="video", n_images=0))
+    rooms.sort(key=lambda r: (r["kind"] != "folder", r["name"].lower()))
+    return rooms
+
+
+def room_name_for(src: Path, in_dir: Path) -> str:
+    """The room name for anything you can point --input at.
+
+    A single image inside a room folder still belongs to that ROOM, so its parent
+    folder names it — otherwise `--input lounge/north.jpg` would file its results
+    under "north", and the room it actually measured would be lost from the report.
+
+        input/lounge                -> "lounge"      the whole room
+        input/lounge/north.jpg      -> "lounge"      one view of that room
+        input/stray.jpg             -> "stray"       a loose photo
+        /somewhere/else/hall.jpg    -> "hall"        outside data/input entirely
+    """
+    src, in_dir = Path(src), Path(in_dir)
+    if src.is_dir():
+        return src.name
+    # A file's room is the sub-folder holding it — but only when that folder is a
+    # room, i.e. strictly BELOW data/input. A file sitting directly in data/input,
+    # or anywhere outside it, is named by the file itself.
+    parent = src.parent
+    try:
+        below_in_dir = in_dir.resolve() in parent.resolve().parents
+    except OSError:                 # a path we cannot resolve — fall back to the file
+        below_in_dir = False
+    return parent.name if (below_in_dir and parent.name) else src.stem
 
 
 def load_keyframes(path: Path, *, stride_s: float = 1.0, max_frames: int = 16,
@@ -334,6 +410,135 @@ def dedup_measured(rows: list[dict], rule: str = "max") -> dict[str, int]:
 
 def vol_from_inventory(inv: dict[str, int], classes: dict) -> float:
     return float(sum(inv[c] * classes[c]["cube_m3"] for c in inv if c in classes))
+
+
+# ------------------------------------------------ stages 1-5, for ONE room
+
+
+def measure_room(src, det, dep, seg=None, *, prompts, classes, vocab,
+                 max_frames: int = 16, use_anchor: bool = True, log=None):
+    """Ingest, detect, depth, anchor and measure ONE room. Stages 1-5.
+
+    WHY THIS IS A FUNCTION AND NOT COPIED INTO EACH CALLER
+        run_combination.py and every pipeline notebook both need exactly this loop.
+        It used to exist twice, and the two copies had already drifted: the notebook
+        wrote det_label='(unnamed)' where the CLI wrote '', which silently broke the
+        colour coding in the annotated picture — report._colour() treats a non-empty
+        label as named, so unnamed boxes were drawn GREEN ("measured and named")
+        instead of RED ("we do not know what this is"). A reader would have trusted
+        a box the pipeline could not identify.
+
+        One copy means the notebook and the CLI cannot disagree, which is the whole
+        claim the notebooks make about themselves.
+
+    STAGE 6 IS NOT HERE. The classifier is a second, independent opinion and the
+    caller decides whether to pay for it. Stages 7-9 are two lines each and differ
+    per caller. This is the expensive, fiddly middle.
+
+    det_label is '' for a box we could not name — never a placeholder string.
+    Display code turns it into '(unnamed)'; comparisons need the empty string.
+
+    log: called with one line at a time so a long run shows progress. None is silent.
+    """
+    import time
+    say = log or (lambda _m: None)
+    timings: dict[str, float] = {}
+
+    # ---- stage 1 ingest
+    t0 = time.time()
+    sampled, frames = load_keyframes(src, max_frames=max_frames)
+    timings["ingest_s"] = round(time.time() - t0, 2)
+    say(f"stage 1  {len(frames)}/{len(sampled)} frames kept  ({timings['ingest_s']}s)")
+    if not frames:
+        return dict(sampled=sampled, frames=[], rows=[], scale=1.0,
+                    scale_src="no usable frames", factors=[], whys=[], n_det=0,
+                    unreachable=[], masked=0, prior=0, all_dets=[], reasons={},
+                    lab_missing=0, lab_fixed=0, timings=timings)
+
+    # ---- stage 2 detect (+ optional mask refinement)
+    t0 = time.time()
+    for f in frames:
+        f["dets"] = det.detect(f["img"], prompts)
+        if seg is not None:
+            for d, m in zip(f["dets"], seg.refine(f["img"], [x.box for x in f["dets"]])):
+                d.mask = m
+    timings["detect_s"] = round(time.time() - t0, 2)
+    n_det = sum(len(f["dets"]) for f in frames)
+    unreachable = det.unreachable(prompts) if hasattr(det, "unreachable") else []
+    say(f"stage 2  {n_det} detections  ({timings['detect_s']}s)")
+
+    # ---- stage 3 depth
+    t0 = time.time()
+    for f in frames:
+        f["depth"] = dep.infer(f["img"])
+    timings["depth_s"] = round(time.time() - t0, 2)
+    say(f"stage 3  depth done  ({timings['depth_s']}s)")
+
+    # ---- stage 4 scale anchor
+    factors, whys = [], []
+    for f in frames:
+        fac, why = door_scale(f["dets"], f["depth"])
+        whys.append(why)
+        if fac:
+            factors.append(fac)
+    if not use_anchor:
+        scale, scale_src = 1.0, "anchor disabled"
+    elif not factors:
+        scale, scale_src = 1.0, "no door found"
+    else:
+        # Median, not mean: one badly-cropped door in eight frames should not drag
+        # the whole room's scale with it.
+        scale = float(np.median(factors))
+        scale_src = f"door anchor, median of {len(factors)} frames"
+    say(f"stage 4  SCALE={scale:.4f}  [{scale_src}]")
+
+    # ---- stage 5 measure (Method B)
+    t0 = time.time()
+    rows = []
+    for f in frames:
+        # (Detection, row) pairs per frame, so report.annotate() can put the measured
+        # dimensions on the right box. Built here rather than matched by index later —
+        # row order and detection order diverge the moment a box is skipped.
+        f["pairs"] = []
+        for d in f["dets"]:
+            # Exact match, not `"door" in d.label`. Labels are normalised to a single
+            # vocabulary prompt, and the old substring test matched the raw span
+            # 'sofa wardrobe door chair', throwing away a real sofa as the anchor.
+            if d.label == "door":
+                continue
+            e = extent(f["depth"], d, scale=scale)
+            if not e:
+                continue
+            # resolve_dims handles the single-view depth limit: a camera never sees the
+            # back of a wardrobe, so for flat-fronted objects the depth extent is
+            # unobservable and a class prior is substituted (gap B8). allowed_classes
+            # narrows the size-class search as tightly as the label honestly permits.
+            dims, cls, dist, depth_src = resolve_dims(e, classes, allowed_classes(d, vocab))
+            row = dict(t=f["t"], det_label=d.label, score=round(d.score, 3),
+                       **{k: (round(v, 4) if isinstance(v, float) else v)
+                          for k, v in dims.items()},
+                       mapped_class=cls, map_dist=round(dist, 3),
+                       depth_source=depth_src)
+            rows.append(row)
+            f["pairs"].append((d, row))
+    timings["measure_s"] = round(time.time() - t0, 2)
+
+    # ---- label quality: a tuning signal, not an error count
+    all_dets = [d for f in frames for d in f["dets"]]
+    reasons: dict[str, int] = {}
+    for d in all_dets:
+        r = getattr(d, "label_reason", "") or "clean"
+        reasons[r] = reasons.get(r, 0) + 1
+    masked = sum(1 for r in rows if r.get("used_mask"))
+    prior = sum(1 for r in rows if r.get("depth_source") == "class_prior")
+    say(f"stage 5  {len(rows)} objects measured, {masked} using masks")
+
+    return dict(sampled=sampled, frames=frames, rows=rows, scale=scale,
+                scale_src=scale_src, factors=factors, whys=whys, n_det=n_det,
+                unreachable=unreachable, masked=masked, prior=prior,
+                all_dets=all_dets, reasons=reasons,
+                lab_missing=sum(1 for d in all_dets if not d.label),
+                lab_fixed=reasons.get("narrowed", 0), timings=timings)
 
 
 # ------------------------------------------------------------------ stage 9

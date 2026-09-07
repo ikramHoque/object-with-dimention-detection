@@ -50,21 +50,68 @@ prints the `stage N` lines you see) and **`poc/runner/pipeline.py`** (the maths)
 orchestrator holds no cleverness; every real calculation is a named function you can
 read on its own.
 
+Stages 1-5 for one room are themselves a single shared function, `measure_room()`
+(`poc/runner/pipeline.py:418`), called by both the CLI and every pipeline notebook.
+That loop used to be written out twice, and the two copies had already drifted apart
+— the notebook wrote `det_label='(unnamed)'` where the CLI wrote `''`, which broke the
+colour coding: `report._colour()` treats a non-empty label as named, so boxes the
+model could NOT identify were drawn green instead of red. Every notebook now ends with
+a cell that asserts its hand-stepped result equals `measure_room()`'s, so a future
+drift fails loudly instead of quietly misleading a reader.
+
 ### Stage 1 · Ingest — turn any input into comparable frames
 
 | | |
 |---|---|
-| Function | `load_keyframes()` — `poc/runner/pipeline.py:55` |
-| In | one image, one video, **or a folder of stills of one room** |
+| Functions | `discover_rooms()` `:58` (a folder is a room), `room_name_for()` `:105`, `load_keyframes()` `:131` |
+| In | `data/input/` — one image, one video, or a folder of stills |
 | Out | `[{t, img, sharp, bright, ok}]` — frames, resized so the long edge is 1024 px |
-| Printed | `stage 1  1/1 frames kept` |
+| Printed | `room bedroom` then `stage 1  3/3 frames kept` |
+
+**A SUB-FOLDER IS A ROOM, and its folder name IS the room name.**
+
+```
+poc/pipelines/<name>/data/input/
+    bedroom/          -> room "bedroom"   every photo inside is a view of it
+        north.jpg
+        south.jpg
+    lounge/           -> room "lounge"
+    kitchen/          -> room "kitchen"
+    hall/             -> room "hall"
+    quick.jpg         -> room "quick"     a loose file is a one-photo room
+```
+
+Four folders is a four-room house. The room name is carried into the JSON, the CSV,
+the annotated frame and every output filename, so a report always says which room it
+describes.
+
+**Why folders rather than loose files.** Stages 7-8 count each item once *per room*: a
+sofa photographed from three angles is one sofa. That is only possible if the code
+knows which photographs belong together, and a folder is how you say so. Eight loose
+photos of eight different rooms would otherwise merge into one inventory for a house
+that does not exist.
+
+`room_name_for()` resolves any `--input` to its room, so `--input lounge/north.jpg`
+files its results under **lounge**, not "north".
+
+Three ways to select what runs:
+
+| | |
+|---|---|
+| every room, one process | `--all` (the models load once — see below) |
+| one room | `--input lounge` |
+| one photograph | `--input lounge/north.jpg` |
 
 Video is sampled once per second. Blurry (`sharpness < 60`) and badly exposed frames
-are dropped, so garbage never reaches the models. `1/1 kept` means one frame in, one
-survived; `12/16 kept` would mean four were rejected.
+are dropped, so garbage never reaches the models. `3/3 kept` means three frames in,
+three survived; `12/16` would mean four were rejected.
 
 **Why resize:** every downstream number is in pixels until stage 4, so frames must be
 a consistent size or the scale factor means nothing.
+
+**Why `--all` matters.** Grounding DINO's first inference in a process costs ~370 s
+and every one after ~2.7 s (`registry.build` caches adapters per process). Five rooms
+in one process is one warm-up; five separate commands is five.
 
 ### Stage 2 · Detection — find and name objects
 
@@ -107,7 +154,7 @@ real metres — but with roughly 8% error, which stage 4 exists to correct.
 
 | | |
 |---|---|
-| Function | `door_scale()` — `poc/runner/pipeline.py:121` |
+| Function | `door_scale()` — `poc/runner/pipeline.py:197` |
 | In | this frame's detections + depth |
 | Out | one multiplier, e.g. `0.8589` |
 | Printed | `stage 4  SCALE=0.8589  [door anchor, median of 1 frames]` |
@@ -132,7 +179,7 @@ boxes suggest — no door, no anchor, `SCALE=1.0`, and the 16% flows straight th
 
 | | |
 |---|---|
-| Functions | `extent()` `:148`, `nearest_class()` `:199`, `resolve_dims()` `:221` |
+| Functions | `extent()` `:224`, `nearest_class()` `:302`, `resolve_dims()` `:324` |
 | In | box + depth + scale |
 | Out | one row per object: `w, d, h, bbox_m3, mapped_class, depth_source` |
 | Printed | `stage 5  6 objects measured` + depth-observability line |
@@ -172,7 +219,7 @@ human. That is the whole reason for running both.
 
 | | |
 |---|---|
-| Functions | `dedup_counts()` `:265`, `dedup_measured()` `:288`, `vol_from_inventory()` `:308` |
+| Functions | `dedup_counts()` `:368`, `dedup_measured()` `:391`, `vol_from_inventory()` `:411` |
 | In | all rows from all frames |
 | Out | one inventory + three volume figures |
 | Printed | `stage 8  A=0.0 m3   B(class)=5.748 m3   B(raw)=8.795 m3` |
@@ -198,7 +245,7 @@ inside the boxes. Which leads directly to the next section.
 
 | | |
 |---|---|
-| Function | `score_inventory()` — `poc/runner/pipeline.py:315` |
+| Function | `score_inventory()` — `poc/runner/pipeline.py:547` |
 | In | the inventory + `poc/ground_truth.csv` filtered by `--room` |
 | Out | bias %, absolute error %, precision, recall |
 | Printed | `stage 9  no ground truth for this room — not scored` |
@@ -245,9 +292,10 @@ runs of the same config never collide.
 > `config.py`:
 >
 > ```bash
-> cp my_room.jpg poc/pipelines/grounding_dino__moge2/data/input/
-> python -m poc.pipelines.grounding_dino__moge2.run          # one shot
-> jupyter lab poc/pipelines/grounding_dino__moge2/notebook.ipynb   # stage by stage
+> mkdir -p poc/pipelines/grounding_dino__moge2__sonnet5/data/input/lounge
+cp ~/photos/lounge/*.jpg poc/pipelines/grounding_dino__moge2__sonnet5/data/input/lounge/
+> python -m poc.pipelines.grounding_dino__moge2__sonnet5.run          # one shot
+> jupyter lab poc/pipelines/grounding_dino__moge2__sonnet5/notebook.ipynb   # stage by stage
 > ```
 >
 > See `poc/pipelines/README.md`. The commands below are the general-purpose tool the

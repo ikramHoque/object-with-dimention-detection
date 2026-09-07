@@ -6,7 +6,7 @@ core.
 
 ```
 poc/pipelines/
-  grounding_dino__moge2/          <- a pipeline
+  grounding_dino__moge2__sonnet5/          <- a pipeline
     config.py                       which models, which thresholds
     run.py                          the CLI
     notebook.ipynb                  the same pipeline, one stage per cell
@@ -22,21 +22,56 @@ poc/pipelines/
 ## Run one, two ways
 
 ```bash
-cp my_room.jpg poc/pipelines/grounding_dino__moge2/data/input/
+mkdir -p poc/pipelines/grounding_dino__moge2__sonnet5/data/input/lounge
+cp ~/photos/lounge/*.jpg poc/pipelines/grounding_dino__moge2__sonnet5/data/input/lounge/
 
 # one shot
-python -m poc.pipelines.grounding_dino__moge2.run
+python -m poc.pipelines.grounding_dino__moge2__sonnet5.run
 
 # stage by stage
-jupyter lab poc/pipelines/grounding_dino__moge2/notebook.ipynb
+jupyter lab poc/pipelines/grounding_dino__moge2__sonnet5/notebook.ipynb
 ```
 
 Both read `config.py` and both call the same shared functions, so they cannot give
 different answers. Verified: the notebook and the CLI produce an identical inventory
 total on the same photograph.
 
-`--input` may be omitted when `data/input/` holds exactly one thing. With several it
-lists them and stops rather than guessing.
+**A FOLDER IS A ROOM, and the folder name IS the room name.**
+
+```
+poc/pipelines/<name>/data/input/
+    bedroom/       <- room "bedroom", photographed from 3 angles
+        north.jpg
+        south.jpg
+        window.jpg
+    lounge/        <- room "lounge"
+    kitchen/
+    hall/          <- four folders = a four-room house
+    quick.jpg      <- a loose file is a one-photo room, named "quick"
+```
+
+Stages 7-8 count each item once *per room* — a sofa seen from three angles is one
+sofa — so the code has to know which photographs belong together. A folder is how you
+tell it. The room name then travels into the JSON, the CSV, the annotated frame and
+every filename, so no report is ever anonymous.
+
+Three ways to select what runs:
+
+```bash
+python -m poc.pipelines.grounding_dino__moge2__sonnet5.run --all
+python -m poc.pipelines.grounding_dino__moge2__sonnet5.run --input lounge
+python -m poc.pipelines.grounding_dino__moge2__sonnet5.run --input lounge/north.jpg
+```
+
+`--all` runs every room **in one process**, which matters: Grounding DINO's first
+inference costs ~370 s and every one after ~2.7 s, so five rooms in one process pays
+that once instead of five times. Each room still writes its own JSON, annotated frame
+and `items.csv`, and they are never merged.
+
+Every result is **timestamped, never overwritten** — re-running with different
+thresholds adds a report beside the previous one so you can compare them. With
+several rooms and neither `--input` nor `--all`, the CLI lists the rooms and stops
+rather than guessing.
 
 ## Add one
 

@@ -38,25 +38,67 @@ or `cuda` and is respected by every entry point.
 Each pipeline owns its config, both entry points, its input and its output:
 
 ```bash
-cp my_room.jpg poc/pipelines/grounding_dino__moge2/data/input/
+mkdir -p poc/pipelines/grounding_dino__moge2__sonnet5/data/input/lounge
+cp ~/photos/lounge/*.jpg poc/pipelines/grounding_dino__moge2__sonnet5/data/input/lounge/
 
-python -m poc.pipelines.grounding_dino__moge2.run                 # one shot
-jupyter lab poc/pipelines/grounding_dino__moge2/notebook.ipynb    # stage by stage
+python -m poc.pipelines.grounding_dino__moge2__sonnet5.run                 # one shot
+jupyter lab poc/pipelines/grounding_dino__moge2__sonnet5/notebook.ipynb    # stage by stage
 ```
 
 Both read that folder's `config.py`, so they cannot disagree — verified: the CLI and
 the notebook produce an identical inventory total on the same photograph.
 
-`--input` may be omitted when `data/input/` holds exactly one thing. With several it
-lists them and stops rather than guessing.
+**A FOLDER IS A ROOM, and the folder name IS the room name.**
 
-**Output**, in that pipeline's `results/`:
+```
+poc/pipelines/<name>/data/input/
+    bedroom/       <- room "bedroom", photographed from 3 angles
+        north.jpg
+        south.jpg
+        window.jpg
+    lounge/        <- room "lounge"
+    kitchen/
+    hall/          <- four folders = a four-room house
+    quick.jpg      <- a loose file is a one-photo room, named "quick"
+```
+
+Stages 7-8 count each item once *per room* — a sofa seen from three angles is one
+sofa — so the code has to know which photographs belong together. A folder is how you
+tell it. The room name then travels into the JSON, the CSV, the annotated frame and
+every filename, so no report is ever anonymous.
+
+Three ways to select what runs:
+
+```bash
+python -m poc.pipelines.grounding_dino__moge2__sonnet5.run --all
+python -m poc.pipelines.grounding_dino__moge2__sonnet5.run --input lounge
+python -m poc.pipelines.grounding_dino__moge2__sonnet5.run --input lounge/north.jpg
+```
+
+`--all` runs every room **in one process**, which matters: Grounding DINO's first
+inference costs ~370 s and every one after ~2.7 s, so five rooms in one process pays
+that once instead of five times. Each room still writes its own JSON, annotated frame
+and `items.csv`, and they are never merged.
+
+Every result is **timestamped, never overwritten** — re-running with different
+thresholds adds a report beside the previous one so you can compare them. With
+several rooms and neither `--input` nor `--all`, the CLI lists the rooms and stops
+rather than guessing.
+
+**Output**, in that pipeline's `results/`. The stem is
+`<combo>__<room>__<UTC timestamp>`, so the room is named and **nothing is ever
+overwritten** — run again at a different threshold and you get a second report next
+to the first:
 
 | file | what it is |
 |---|---|
-| `<run>.json` | the full record, for `poc.runner.compare` |
-| `<run>/frame_000.jpg` | each object boxed and labelled with class, W×D×H and m³ |
-| `<run>/items.csv` | per-object measurements and the inventory, for Excel |
+| `<combo>__bedroom__<stamp>.json` | the full record, for `poc.runner.compare` |
+| `<combo>__bedroom__<stamp>/frame_000.jpg` | each object boxed and labelled with class, W×D×H and m³ |
+| `<combo>__bedroom__<stamp>/items.csv` | per-object measurements and the inventory, for Excel |
+
+The notebook writes alongside it, under `results/notebook__<stamp>/<room>/`, plus a
+`summary.csv` with one row per room — pipeline, run, room, object count, whether a
+door was found, quotable m³, raw m³ and the inventory.
 
 Colour in the annotated frame is provenance, not decoration: **green** measured,
 **amber** depth assumed from the cube table, **red** detected but unnamed, **blue**
@@ -64,23 +106,33 @@ the door used as the scale reference. A frame full of amber and red means the vo
 rests on assumptions — and that view is what exposed a 19% over-estimate which looked
 perfectly plausible in the JSON.
 
-### Your own input, three shapes
+### Your own input — one folder per room
 
 ```bash
-# one photo
-cp ~/Desktop/room.jpg poc/pipelines/grounding_dino__moge2/data/input/
+P=poc/pipelines/grounding_dino__moge2__sonnet5/data/input
 
-# one room, several angles — the real product shape
-mkdir -p poc/pipelines/grounding_dino__moge2/data/input/smith_bedroom
-cp ~/photos/bedroom/*.jpg poc/pipelines/grounding_dino__moge2/data/input/smith_bedroom/
+# a four-room house: one folder per room, folder name = room name
+mkdir -p $P/{bedroom,lounge,kitchen,hall}
+cp ~/photos/bedroom/*.jpg  $P/bedroom/     # several angles of ONE room
+cp ~/photos/lounge/*.jpg   $P/lounge/
+cp ~/photos/kitchen/*.jpg  $P/kitchen/
+cp ~/photos/hall/*.jpg     $P/hall/
 
-# a video walkthrough
-cp ~/videos/walk.mp4 poc/pipelines/grounding_dino__moge2/data/input/
+# a loose photo is also fine: a one-photo room named after the file
+cp ~/Desktop/garage.jpg $P/
+
+# a video walkthrough of one room, sampled once per second
+cp ~/videos/lounge_walk.mp4 $P/
 ```
 
-**One folder is one ROOM, not one dataset.** Stages 7-8 deduplicate across frames on
-the assumption every frame shows the same room; 50 photos of 50 rooms would merge into
-a single meaningless inventory.
+Then `--all` for the whole house, `--input lounge` for one room, or
+`--input lounge/north.jpg` for one photograph.
+
+**A folder is one ROOM, not one dataset.** Stages 7-8 deduplicate across the frames
+*within* a room, on the assumption every frame shows the same place — a sofa seen from
+three angles is one sofa. Fifty photos of fifty rooms in a single folder would merge
+into one meaningless inventory. That is exactly why rooms are folders: the folder is
+how you tell the code which photographs belong together.
 
 ### Add a pipeline
 
