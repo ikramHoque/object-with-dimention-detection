@@ -196,6 +196,33 @@ def extent(depth, det, scale: float = 1.0, lo: float = 2, hi: float = 98):
                 depth_observed=not degenerate, pca_ratio=round(ratio, 4))
 
 
+def allowed_classes(det, vocab: dict) -> list[str] | None:
+    """Which cube-table classes may this detection be matched against?
+
+    Restricting the search is worth roughly 18 points of accuracy, so it is worth
+    being careful about. Three cases, in order of how much the label tells us:
+
+      clean / narrowed label  -> that prompt's own 2-3 classes
+      ambiguous label         -> the UNION of the tied candidates' classes
+      nothing usable          -> None, meaning search the whole table by geometry
+
+    The middle case exists because collapsing ambiguity to nothing threw away real
+    information. On a live run the span 'coffee table side table' became unnamed and
+    geometry then matched an actual coffee table to sofa_3_seat: 1.416 m3 against a
+    true ~0.3 m3. Both candidates were tables that agreed on size, so the union
+    {bedside_table, coffee_table, side_table} was available the whole time.
+
+    Returns None rather than [] for "no restriction", because nearest_class treats a
+    falsy value as "search everything" and an empty list would silently match nothing.
+    """
+    direct = vocab.get(det.label)
+    if direct:
+        return list(direct)
+    cands = getattr(det, "label_candidates", ()) or ()
+    union = sorted({c for prompt in cands for c in vocab.get(prompt, [])})
+    return union or None
+
+
 def nearest_class(dims: dict, classes: dict, allowed: Sequence[str] | None = None):
     """Closest cube-table entry to a measurement.
 

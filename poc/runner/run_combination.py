@@ -53,6 +53,7 @@ sys.path.insert(0, str(ROOT.parent))                # so `poc.` imports resolve
 
 from poc.models import registry                                     # noqa: E402
 from poc.runner import pipeline as P                                 # noqa: E402
+from poc.runner import report as R                                  # noqa: E402
 
 
 def load_tables():
@@ -93,6 +94,19 @@ def main(argv=None):
     ap.add_argument("--vlm-frames", type=int, default=6)
     ap.add_argument("--dedup", default="max", choices=["max", "median"])
     ap.add_argument("--allow-noncommercial", action="store_true")
+    # Where input comes from and where output goes. Default to the shared
+    # poc/data/input and poc/results; a pipeline folder passes its own, so its
+    # photographs and results live beside its config and notebook.
+    ap.add_argument("--box-th", type=float, default=None,
+                    help="detector confidence threshold (default: the adapter's own)")
+    ap.add_argument("--txt-th", type=float, default=None,
+                    help="open-vocabulary text threshold, where the model has one")
+    ap.add_argument("--input-dir", default=None,
+                    help="folder to resolve --input against (default poc/data/input)")
+    ap.add_argument("--results-dir", default=None,
+                    help="where to write JSON, frames and CSV (default poc/results)")
+    ap.add_argument("--no-vis", action="store_true",
+                    help="skip the annotated JPEGs and the CSV (JSON only)")
     ap.add_argument("--tag", default="", help="free-text label for this run")
     a = ap.parse_args(argv)
 
@@ -122,13 +136,27 @@ def main(argv=None):
     class_names = sorted(classes)
     prompts = list(vocab.keys())
 
-    src = ROOT / "data" / "input" / a.input if not Path(a.input).is_absolute() else Path(a.input)
+    in_dir = Path(a.input_dir).expanduser().resolve() if a.input_dir else ROOT / "data" / "input"
+    res_dir = Path(a.results_dir).expanduser().resolve() if a.results_dir else ROOT / "results"
+
+    def disp(q: Path) -> str:
+        """Show a short path when we can, an absolute one when we cannot. A
+        pipeline folder may sit outside the repo, where relative_to() raises."""
+        try:
+            return str(q.relative_to(ROOT.parent))
+        except ValueError:
+            return str(q)
+
+    src = in_dir / a.input if not Path(a.input).is_absolute() else Path(a.input)
     if not src.exists():
         src = Path(a.input)
     if not src.exists():
-        print(f"input not found: {a.input}")
+        print(f"input not found: {a.input}  (looked in {disp(in_dir)})")
         return 1
 
+    # One timestamp for the whole run, set before anything is written, so the
+    # results JSON and the annotated-frame folder always share the same stem.
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     combo_id = "__".join([a.detector, a.depth, a.segmenter or "nomask",
                           classifier_key or "nocls",
                           "noanchor" if a.no_anchor else "anchor"])
@@ -146,7 +174,15 @@ def main(argv=None):
         print("no usable frames")
         return 1
 
-    det = registry.build(a.detector)
+    # Thresholds reach the adapter here. Before this they did not: the detector was
+    # built with no arguments, so --box-th had nowhere to go and every run silently
+    # used the adapter default. registry.build drops what a model cannot take.
+    det_kwargs = {}
+    if a.box_th is not None:
+        det_kwargs["box_threshold"] = a.box_th
+    if a.txt_th is not None:
+        det_kwargs["text_threshold"] = a.txt_th
+    det = registry.build(a.detector, **det_kwargs)
     dep = registry.build(a.depth)
     seg = registry.build(a.segmenter) if a.segmenter else None
 
@@ -192,6 +228,11 @@ def main(argv=None):
     t0 = time.time()
     rows = []
     for f in frames:
+        # (Detection, row) pairs per frame, so report.annotate() can put the
+        # measured dimensions on the right box. Built here rather than matched
+        # up later by index — row order and detection order diverge as soon as
+        # a box is skipped.
+        f["pairs"] = []
         for d in f["dets"]:
             # Exact match, not `"door" in d.label`. Labels are normalised to a
             # single vocabulary prompt now (see normalise_label), and the old
@@ -206,12 +247,19 @@ def main(argv=None):
             # resolve_dims handles the single-view depth limit: a camera never sees
             # the back of a wardrobe, so for flat-fronted objects the depth extent is
             # unobservable and a class prior is substituted. See gap B8.
-            dims, cls, dist, depth_src = P.resolve_dims(e, classes, vocab.get(d.label) or None)
-            rows.append(dict(t=f["t"], det_label=d.label, score=round(d.score, 3),
-                             **{k: (round(v, 4) if isinstance(v, float) else v)
-                                for k, v in dims.items()},
-                             mapped_class=cls, map_dist=round(dist, 3),
-                             depth_source=depth_src))
+            # P.allowed_classes narrows the size-class search as tightly as the
+            # label honestly permits — including the union of a fused span's
+            # candidates. The notebook calls the same function, so the two cannot
+            # drift. See its docstring for the coffee-table case that motivated it.
+            dims, cls, dist, depth_src = P.resolve_dims(
+                e, classes, P.allowed_classes(d, vocab))
+            row = dict(t=f["t"], det_label=d.label, score=round(d.score, 3),
+                       **{k: (round(v, 4) if isinstance(v, float) else v)
+                          for k, v in dims.items()},
+                       mapped_class=cls, map_dist=round(dist, 3),
+                       depth_source=depth_src)
+            rows.append(row)
+            f["pairs"].append((d, row))
     timings["measure_s"] = round(time.time() - t0, 2)
 
     # Label quality. An open-vocabulary detector returns matched text, not a
@@ -286,6 +334,21 @@ def main(argv=None):
     print(f"stage 8  A={vols['recognised_m3']} m3   "
           f"B(class)={vols['measured_class_m3']} m3   B(raw)={vols['measured_raw_m3']} m3")
 
+    # ---- the human-readable half -----------------------------------------
+    # The JSON above is for compare.py. A person deciding whether to trust these
+    # numbers needs to SEE the boxes and read a table, which is what this is.
+    stem = f"{combo_id}__{src.stem}__{stamp}"
+    vis_dir = res_dir / stem
+    if not a.no_vis:
+        imgs = R.write_visuals(frames, vis_dir, scale=scale,
+                               total_m3=vols["measured_class_m3"])
+        csv_path = R.write_csv(rows, inv_measured, classes, vis_dir / "items.csv")
+        print(f"\nwrote {len(imgs)} annotated frame(s) to "
+              f"{disp(vis_dir)}/")
+        print(f"      green measured · amber depth assumed · red unnamed · blue door")
+        print(f"wrote {disp(csv_path)}")
+    print("\n".join(R.item_lines(rows, inv_measured, classes)))
+
     # ---- stage 9 scoring -------------------------------------------------
     truth, truth_dims = load_truth(a.room)
     scores = {}
@@ -301,7 +364,6 @@ def main(argv=None):
         print("stage 9  no ground truth for this room — not scored")
 
     # ---- write the result ------------------------------------------------
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out = {
         "combo_id": combo_id,
         "tag": a.tag,
@@ -313,6 +375,7 @@ def main(argv=None):
             "detector": a.detector, "depth": a.depth, "segmenter": a.segmenter,
             "classifier": classifier_key, "scale_anchor": not a.no_anchor,
             "dedup": a.dedup, "max_frames": a.max_frames, "vlm_frames": a.vlm_frames,
+            "box_th": a.box_th, "txt_th": a.txt_th,
         },
         "licences": {k: registry.info(k).licence for k in selected if k},
         "frames": {"sampled": len(sampled), "kept": len(frames)},
@@ -348,11 +411,10 @@ def main(argv=None):
         "usage": usage_tot,
         "timings": timings,
     }
-    res_dir = ROOT / "results"
-    res_dir.mkdir(exist_ok=True)
+    res_dir.mkdir(parents=True, exist_ok=True)
     fn = res_dir / f"{combo_id}__{src.stem}__{stamp}.json"
     fn.write_text(json.dumps(out, indent=2))
-    print(f"\nwrote {fn.relative_to(ROOT.parent)}")
+    print(f"\nwrote {disp(fn)}")
     return 0
 
 

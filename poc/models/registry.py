@@ -77,11 +77,28 @@ def info(key: str) -> ModelInfo:
 
 
 def build(key: str, **overrides):
-    """Instantiate an adapter. Still does not load weights — that happens on first use."""
+    """Instantiate an adapter. Still does not load weights — that happens on first use.
+
+    Unsupported keyword arguments are DROPPED WITH A WARNING rather than raising.
+    Callers pass a common set of knobs (box_threshold, text_threshold) across a
+    catalogue of models that do not all have them — RT-DETR has no text threshold
+    because it has no text. Raising would force every caller to special-case each
+    model; silently ignoring would let a threshold you thought you set do nothing.
+    So it is dropped, loudly.
+    """
+    import inspect
     mod_name, cls_name = _SPECS[key]
     mod = importlib.import_module(mod_name, package=_PKG)
+    cls = getattr(mod, cls_name)
     kwargs = {**_KWARGS.get(key, {}), **overrides}
-    return getattr(mod, cls_name)(**kwargs)
+    try:
+        accepted = set(inspect.signature(cls.__init__).parameters) - {"self"}
+    except (TypeError, ValueError):
+        accepted = set(kwargs)
+    dropped = sorted(k for k in kwargs if k not in accepted)
+    for k in dropped:
+        print(f"  ! {key} takes no '{k}' — ignoring it (value {kwargs[k]!r})")
+    return cls(**{k: v for k, v in kwargs.items() if k in accepted})
 
 
 def _probe_module(extra: str) -> str:

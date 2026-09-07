@@ -26,7 +26,7 @@ What remains unverified is the **model integrations**, which need weights and fo
 | **Algorithm** verified by execution | **9 of 9 functions** — nms, extent, door_scale, nearest_class, resolve_dims, dedup ×2, score, volume |
 | **Tooling** verified by execution | registry, licence gate, sweep planner, ranking |
 | **Model adapters** verified | **3 of 13** — `grounding_dino`, `moge2`, `sam2` executed on real photographs, MPS |
-| Defects found and fixed by testing | **6**, all real (see below) |
+| Defects found and fixed by testing | **7**, all real (see below) |
 | Blocked on environment or data | end-to-end run |
 
 **One-line read:** the arithmetic is trustworthy, the environment now works, and the two
@@ -319,6 +319,60 @@ pipeline.
 
 ---
 
+**7 · Ambiguous labels threw away information — found by LOOKING at the output**
+
+Once `run_combination` started drawing boxes, the picture showed `rug_rolled` and
+`sofa_3_seat` both sitting on the **coffee table**. Tracing it back: the table was
+detected with raw text `'coffee table side table'`, both table prompts, so the
+"refuse to guess when ambiguous" rule left it unnamed — and `nearest_class()` then
+searched all 42 classes by geometry and chose **`sofa_3_seat`, 1.416 m³**, for an
+object of roughly 0.3 m³.
+
+The earlier reasoning — *a wrong label is worse than none* — is right for `sofa`
+versus `cardboard box`. It is wrong when the tied prompts **agree on size**, because
+then the ambiguity has no bearing on the quote and collapsing it discards information
+we already had.
+
+Fixed by `P.allowed_classes()`, which searches the **union** of the candidates'
+classes instead of nothing:
+
+```
+before  unnamed -> all 42 -> sofa_3_seat                            1.416 m³
+after   {bedside_table, coffee_table, side_table} -> coffee_table   0.340 m³
+```
+
+**Measured effect on the room total: 5.748 → 4.672 m³, a 19% reduction.** Same image,
+same models, same thresholds; the only change is how tightly the search is restricted.
+
+Two lessons worth keeping:
+
+1. **The annotated image is a debugging tool, not decoration.** This error was
+   invisible in the JSON, where every row looked plausible. It was obvious the moment
+   the boxes were drawn on the photograph.
+2. Restricting the search is worth ~18 points, but restricting it **wrongly** is worse
+   than not restricting it. The union is the honest middle: narrower than the whole
+   table, and it invents nothing.
+
+---
+
+## Human-readable output (7 Sept 2026)
+
+`poc/runner/report.py` — shared by the CLI and the notebook, so both draw identically.
+Each run now writes `poc/results/<run>/`:
+
+- `frame_NNN.jpg` — a box per object labelled with class, W×D×H and m³. Colour encodes
+  provenance: green measured, amber depth assumed from the cube table, red unnamed,
+  blue the door reference. A picture full of amber and red means the volume rests on
+  assumptions, which is legible at a glance rather than buried in JSON.
+- `items.csv` — per-object measurements plus the inventory. CSV because a surveyor
+  reviews this in Excel.
+- the same item table printed to the console.
+
+`.gitignore` widened to `poc/results/**`: those JPEGs embed the input photograph, so a
+dataset input would otherwise commit dataset imagery.
+
+---
+
 ### A design decision worth recording
 
 When a span fuses several prompts we return **no label** rather than the longest match.
@@ -328,6 +382,54 @@ is forced into that class's 2–3 candidates whatever the tape says. The first v
 the fix returned `max(hits, key=len)`, which turned a real span into `'cardboard box'`
 on string length alone — confident nonsense, the one output this pipeline must never
 produce.
+
+---
+
+## Per-pipeline folders (7 Sept 2026)
+
+`poc/pipelines/<name>/` now holds everything belonging to one pipeline — `config.py`,
+`run.py`, `notebook.ipynb`, `data/input/`, `results/`, `README.md` — while the stage
+logic stays shared in `poc/runner/` and `poc/models/`.
+
+**The design decision:** config, entry points and data are per pipeline; **logic is
+not copied.** Copying it would make each folder self-contained and wreck the
+codebase, because fourteen copies drift and then nobody can tell which is right.
+Two pieces of local evidence rather than a principle: `poc/pipeline.ipynb` carries an
+inline copy of the stage logic, has never run, and now disagrees with the CLI; and the
+coffee-table 19% over-estimate survived partly because the notebook kept its own
+vocabulary lookup.
+
+Notebooks are **generated** by `make_notebook.py` for the same reason — the narration
+is identical across pipelines and differs only in the model names, so one source
+regenerates all of them. That generator previously existed only in a scratch
+directory, meaning nobody but its author could regenerate the notebook; it is now in
+the repo.
+
+Enabling changes:
+
+- `run_combination` takes `--input-dir` / `--results-dir`, defaulting to the shared
+  folders, so a pipeline can own its input and output.
+- `run_combination` takes `--box-th` / `--txt-th`, which **previously had nowhere to
+  go**: the detector was built with no arguments, so every run silently used the
+  adapter default and a config could not set a threshold at all.
+- `registry.build()` drops keyword arguments a model cannot accept, with a warning.
+  RT-DETR has no text threshold because it has no text; raising would force every
+  caller to special-case each model, and ignoring silently would let a threshold you
+  thought you set do nothing.
+
+Verified: the per-pipeline CLI produces **4.672 m³** on the demo room, identical to
+the general CLI, with JSON, annotated frame and `items.csv` all inside the pipeline's
+own `results/`; the shared `poc/results/` was untouched. Multi-input refuses to guess
+and lists the options. The scaffolder rejects unknown model keys and warns when a
+combination cannot ship.
+
+**Known limitation:** one run is one room. Several rooms need several invocations, and
+each re-pays the detector's ~370 s warm-up. Batching is not implemented.
+
+A `.gitignore` subtlety worth recording: `poc/pipelines/*/data/**` matched the
+`data/input` **directory** and excluded it, and git will not descend into an excluded
+directory to re-include a file — so `data/input/.gitkeep` vanished and a fresh clone
+had no input folder. Ignoring the *contents* (`data/input/*`) keeps the folder.
 
 ---
 

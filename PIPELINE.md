@@ -240,6 +240,20 @@ runs of the same config never collide.
 
 ## 3. Running on your own data
 
+> **Prefer a pipeline folder.** Each pipeline in `poc/pipelines/<name>/` owns its own
+> `data/input/` and `results/`, plus a CLI and a step-by-step notebook that read one
+> `config.py`:
+>
+> ```bash
+> cp my_room.jpg poc/pipelines/grounding_dino__moge2/data/input/
+> python -m poc.pipelines.grounding_dino__moge2.run          # one shot
+> jupyter lab poc/pipelines/grounding_dino__moge2/notebook.ipynb   # stage by stage
+> ```
+>
+> See `poc/pipelines/README.md`. The commands below are the general-purpose tool the
+> pipeline folders are presets of — use them for one-off runs and ablations.
+
+
 Nothing about the pipeline is HomeObjects-specific. That dataset is only used by
 `run_dataset_eval`, because it happens to have boxes to score against.
 

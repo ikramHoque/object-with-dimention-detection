@@ -96,8 +96,8 @@ class GroundingDinoDetector:
             # Normalise BEFORE nms, not after: nms groups by exact label, so raw
             # token spans would never suppress each other and the same object
             # would be counted several times. See normalise_label().
-            lab, reason = normalise_label(raw, prompts)
+            lab, reason, cands = normalise_label(raw, prompts)
             dets.append(Detection(label=lab, label_raw=raw, label_reason=reason,
-                                  score=float(sc), box=[float(v) for v in b],
-                                  source=INFO.key))
+                                  label_candidates=cands, score=float(sc),
+                                  box=[float(v) for v in b], source=INFO.key))
         return nms(dets)

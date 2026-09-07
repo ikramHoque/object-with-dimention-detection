@@ -53,6 +53,9 @@ class Detection:
     label_raw: str = ""                   # the detector's own text, pre-normalisation
     label_reason: str = ""                # normalise_label() verdict: "", narrowed,
                                           # ambiguous, empty, unmatched
+    label_candidates: tuple[str, ...] = ()  # when ambiguous, the prompts that tied.
+                                          # Consumers should search the UNION of their
+                                          # size classes rather than all 42.
 
     @property
     def area_px(self) -> float:
@@ -208,21 +211,32 @@ def normalise_label(raw: str, prompts: Sequence[str]) -> tuple[str, str]:
     """
     s = " ".join(str(raw).split()).lower()
     if not s:
-        return "", "empty"
+        return "", "empty", ()
     known = [p.lower() for p in prompts]
     if s in known:
-        return s, ""
+        return s, "", (s,)
     hits = [p for p in known if p in s]
     # 'chair' is a substring of 'armchair'. A nested pair is one object, not two
     # competing readings, so drop any hit subsumed by a longer hit before we
     # decide whether the span is genuinely ambiguous.
     hits = [h for h in hits if not any(h != o and h in o for o in hits)]
     if len(hits) == 1:
-        return hits[0], "narrowed"
+        return hits[0], "narrowed", (hits[0],)
     if hits:
-        # Several distinct prompts fused into one span. We deliberately return NO
-        # label rather than picking one, because a WRONG label is much worse here
-        # than no label at all:
+        # Several distinct prompts fused into one span. We return no single label —
+        # but we DO return the candidates, and callers must search the union of
+        # their size classes. That matters, and a real run proved it:
+        #
+        #   span 'coffee table side table' on an actual coffee table
+        #     -> ambiguous -> unnamed -> nearest_class searched all 42 by geometry
+        #     -> chose sofa_3_seat, 1.416 m3, for an object of roughly 0.3 m3
+        #
+        # Both candidates were tables that AGREE on size, so collapsing to nothing
+        # threw away information we had. Searching {coffee_table, side_table,
+        # bedside_table} would have kept it. Hence label_candidates.
+        #
+        # We still refuse to invent ONE label, because a wrong single label is
+        # worse than no label:
         #
         #   no label     -> nearest_class searches all 42 classes and picks by
         #                   MEASURED w/d/h. Geometry-driven, degrades gracefully.
@@ -237,8 +251,8 @@ def normalise_label(raw: str, prompts: Sequence[str]) -> tuple[str, str]:
         # that produced 'cardboard box', which won on string length alone and
         # carried no semantic claim whatsoever. Confident nonsense is the one
         # output this pipeline must never produce.
-        return "", "ambiguous"
-    return "", "unmatched"
+        return "", "ambiguous", tuple(sorted(hits))
+    return "", "unmatched", ()
 
 
 def nms(dets: list[Detection], iou_thresh: float = 0.65) -> list[Detection]:

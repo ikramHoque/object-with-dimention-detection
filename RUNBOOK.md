@@ -25,6 +25,15 @@ All commands are run from the **repo root**, not from inside `poc/`.
 |---------|----------------|--------------|
 | `./poc/setup.sh` | `poc/setup.sh` | Python 3.12 venv + all dependencies |
 
+> **Running a pipeline?** Each lives in `poc/pipelines/<name>/` with its own
+> `config.py`, `run.py`, `notebook.ipynb`, `data/input/` and `results/`:
+>
+> ```bash
+> python -m poc.pipelines.grounding_dino__moge2.run --input my_room.jpg
+> ```
+>
+> See `poc/pipelines/README.md`. Everything below is the shared machinery underneath.
+>
 > **New to this?** Read `PIPELINE.md` first. It walks the nine stages with the
 > function and file behind each one, and explains why `run_dataset_eval` (detection
 > metrics) and `run_combination` (the actual pipeline) are different tools.

@@ -36,9 +36,13 @@ poc/data/**
 poc/ground_truth.csv
 
 # Sweep output. One JSON per run, can hold thousands of measurement rows.
-poc/results/*.json
+# Everything a run writes, not just the JSON: run_combination now also saves
+# annotated frames and items.csv into poc/results/<run>/. Those JPEGs embed the
+# input photograph, so with a dataset input they would drag dataset imagery into
+# git — which is precisely what poc/data/** exists to prevent.
+poc/results/**
 !poc/results/.gitkeep
-poc/rnd/results/*.json
+poc/rnd/results/**
 !poc/rnd/results/.gitkeep
 
 # --- model weights & caches ---
@@ -60,3 +64,15 @@ hub/
 Thumbs.db
 .idea/
 .vscode/
+
+# Per-pipeline input and output. Each pipeline folder owns its own photographs and
+# its own results; neither belongs in git. The annotated frames embed the input
+# photograph, so with a dataset input they would drag dataset imagery in.
+# NOTE the single '*', not '**'. `data/**` matches the data/input DIRECTORY and
+# excludes it, and git will not descend into an excluded directory to re-include a
+# file inside it — so data/input/.gitkeep silently vanished from the repo and a
+# fresh clone had no input folder. Ignoring the CONTENTS keeps the folder itself.
+poc/pipelines/*/data/input/*
+!poc/pipelines/*/data/input/.gitkeep
+poc/pipelines/*/results/*
+!poc/pipelines/*/results/.gitkeep
