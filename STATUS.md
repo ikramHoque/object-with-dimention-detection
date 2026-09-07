@@ -25,12 +25,13 @@ What remains unverified is the **model integrations**, which need weights and fo
 | Curated combinations | 14, one-factor-at-a-time |
 | **Algorithm** verified by execution | **9 of 9 functions** — nms, extent, door_scale, nearest_class, resolve_dims, dedup ×2, score, volume |
 | **Tooling** verified by execution | registry, licence gate, sweep planner, ranking |
-| **Model adapters** verified | **0 of 13** — no weights, no deps installed |
-| Defects found and fixed by testing | **2**, both real (see below) |
+| **Model adapters** verified | **3 of 13** — `grounding_dino`, `moge2`, `sam2` executed on real photographs, MPS |
+| Defects found and fixed by testing | **6**, all real (see below) |
 | Blocked on environment or data | end-to-end run |
 
-**One-line read:** the arithmetic is trustworthy and the harness works; nothing has yet
-touched a real photograph.
+**One-line read:** the arithmetic is trustworthy, the environment now works, and the two
+default models execute on this Mac — but nothing has yet touched a real photograph, so no
+accuracy claim exists.
 
 ---|---|
 | Pipeline stages written | **10 / 10** (9 + appendix) |
@@ -142,8 +143,8 @@ assumptions that will only surface on a real frame:
 | `poc/cube_table.json` | 42 size classes → packed volume + typical dimensions | ✅ | **PLACEHOLDER** — must be replaced with NX's own cube sheet (gap A3) |
 | `poc/detect_vocab.json` | 26 detector prompts → candidate size classes | ✅ | `door` included as scale anchor, excluded from inventory |
 | `poc/ground_truth_template.csv` | Schema + 10 example rows | ✅ | template only; the real file does not exist yet |
-| `poc/requirements.txt` | Pinned dependency set | 🟡 | never installed |
-| `poc/setup.sh` | Creates `.venv` on Python 3.12 via uv, registers kernel | 🟡 | never run |
+| `poc/requirements.txt` | Pinned dependency set | ✅ | installed; MoGe pinned out of the resolve |
+| `poc/setup.sh` | Creates `.venv` on Python 3.12 via uv, registers kernel, verifies imports | ✅ | run end to end, exit 0 |
 | `poc/README.md` | Run order, stage table, what to look at first | ✅ | |
 | `ARCHITECTURE.md` | Diagrams, stage I/O, model table, worked example | ✅ | start here — explains Method A vs Method B |
 | `MODELS.md` | All 13 models, licences, the YOLO answer, how to sweep | ✅ | read before choosing a model |
@@ -205,14 +206,128 @@ In order. Nothing here is engineering.
 
 | # | Blocker | Action | Effort |
 |---|---------|--------|--------|
-| 1 | No Python environment | `./poc/setup.sh` — pins 3.12, pulls ~2.5 GB of torch | 20 min |
+| ~~1~~ | ~~No Python environment~~ | **DONE 3 Sept 2026.** `poc/.venv` on Python 3.12, torch 2.14.0 on **mps**, all 11 core imports verified by `setup.sh` itself | — |
 | 1b | Optional models not installed | `python -m poc.models.registry` shows what's missing. SAM 3 needs `huggingface-cli login`; Ultralytics is AGPL and deliberately not installed | varies |
 | 2 | No room footage | Shoot one bedroom and one living room, slow pan, door visible in frame | 30 min |
 | 3 | No ground truth | Copy the template, laser-measure the same two rooms | half a day |
 | 4 | No API key | `export ANTHROPIC_API_KEY=...` — Method A only; Method B runs without it | 1 min |
 
-Blockers 1, 2 and 4 get the pipeline running. **Blocker 3 is the one that makes the output
+Blocker 1 is now cleared. Blockers 2 and 4 get the pipeline running. **Blocker 3 is the one that makes the output
 mean anything** — it is gap **A1**, and without it stage 9 prints nothing.
+
+---
+
+## Defects found by running the models (3 Sept 2026)
+
+Found by executing Grounding DINO and MoGe-2 on this Mac for the first time. None of
+these were visible from reading the code.
+
+**3 · Open-vocabulary labels are token spans, not class names**
+
+Grounding DINO returns the matched *text span*, whose shape depends on
+`text_threshold`:
+
+| `text_threshold` | returns | why |
+|---|---|---|
+| 0.35 / 0.25 | `''` | no token cleared the bar |
+| 0.05 | `'sideboard rolled rug mattress cardboard box door'` | many did |
+| in the band | `'sofa'` | what we want |
+
+Neither off-nominal form is a key in `detect_vocab.json`, so `allowed` became `None`
+and `nearest_class()` searched **all 42 size classes** instead of 2–3 — worth about
+18 points of accuracy by its own docstring, lost with no error and nothing in the
+output JSON. Fixed by `normalise_label()` in `poc/models/base.py`; counted per-reason
+in the results under `label_quality`.
+
+**4 · The scale anchor discarded real furniture**
+
+`if "door" in d.label` is a substring test. Against the span
+`'sofa wardrobe door chair'` it matched, so a sofa was skipped as though it were the
+door anchor. Now an exact `== "door"` comparison, which is safe because `door` is the
+only door-like prompt in the 26.
+
+**5 · Unnamed boxes double-counted objects** *(introduced while fixing 3, caught by testing)*
+
+`nms()` groups by exact label, so an unnamed box sitting on a named box was treated as
+a second object and both survived — inflating volume, which is the precise failure this
+project exists to fix. `nms()` now runs a second cross-label pass dropping unnamed boxes
+that shadow named ones, while still preserving genuine overlaps (a chair in front of a
+sofa is two objects, and there is a regression test for exactly that).
+
+**6 · `nms()` output order was nondeterministic**
+
+`for label in {d.label for d in dets}` iterates a set of **strings**, and Python
+randomises string hashing per process. Three runs on identical input produced three
+different orders. Volume totals were unaffected (order-independent sums), but every
+`measurements` block in every results JSON came out shuffled — so two runs could not
+be diffed, and any comparison pairing rows by position was silently wrong. It caught
+me out directly: my first masked-vs-unmasked comparison paired the wrong objects.
+Fixed by iterating `sorted()` and giving the output a total order (score desc, then
+box, then label).
+
+For a project whose entire method is comparing 14 combinations, reproducible ordering
+is not cosmetic.
+
+---
+
+## First real measurement: what SAM 2 masks actually do (7 Sept 2026)
+
+Same photograph, same detector and depth model, `--segmenter sam2` the only change.
+Objects matched by detection score, not row position.
+
+| object | no mask (w×d×h) | with mask | m³ no-mask | m³ mask |
+|---|---|---|---|---|
+| (unnamed) sofa | 2.68 × 1.74 × 0.75 | 2.00 × 0.69 × 0.70 | 3.486 | 0.962 |
+| (unnamed) | 2.22 × 0.76 × 0.64 | 1.00 × 0.94 × 0.49 | 1.086 | 0.458 |
+| armchair | 0.90 × 0.31 × 0.73 | 0.47 × 0.22 × 0.70 | 0.205 | 0.074 |
+| tv stand | 1.93 × 1.07 × 0.74 | 1.27 × 0.36 × 0.60 | 1.522 | 0.272 |
+| rolled rug | 2.01 × 0.99 × 0.53 | 1.57 × 0.92 × 0.03 | 1.057 | 0.048 |
+| chest of drawers | 1.93 × 1.02 × 0.73 | 1.27 × 0.36 × 0.60 | 1.438 | 0.272 |
+
+**The clear win is the scale anchor.** The door is measured from its own pixels instead
+of a rectangle containing wall:
+
+```
+no mask   door 2.307 m vs 1.981 m true   -> +16.5% error
+with mask door 2.116 m vs 1.981 m true   ->  +6.8% error
+```
+
+Cubed, that is the difference between a 58% and a 22% volume inflation, applied to the
+whole room. On this evidence masks should be **on by default** for the anchor alone.
+
+**But masks trade one error for another.** Gross over-measurement becomes systematic
+under-measurement: 0.36 m deep for a chest of drawers (real: 0.45–0.50 m) and 0.22 m
+for an armchair. The camera only sees front faces, so a mask measures the front face
+faithfully — which is the single-view depth limit, gap **B8**, arriving in real data.
+
+**And our guard did not fire.** `depth_observability` reported `class_prior 0/6 (0%)`
+despite those figures. `extent()` flags degeneracy at `pca_ratio < 0.12 or d < 0.05`,
+so it catches only total collapse (under 5 cm), not a 30–40% systematic shortfall.
+**The threshold is too lenient and needs recalibrating against measured rooms** — which
+needs gap A1 first, because there is currently nothing to calibrate against.
+
+**A domain finding worth keeping:** the rug measured 1.57 × 0.92 × **0.03** m — correct
+for a rug lying flat, and irrelevant for a removal quote, because it ships **rolled**.
+Measured dimensions are not packed dimensions. The cube table already encodes the
+packed form (`rug_rolled`), so for some classes the measurement should be discarded in
+favour of the table rather than reconciled with it. That distinction is not yet in the
+pipeline.
+
+**Caveat on this run:** transformers warned it loaded a `sam2_video` checkpoint into
+`Sam2Model`. The masks are plainly working, but the checkpoint choice in
+`poc/models/segment_sam2.py` should be confirmed before these numbers are quoted.
+
+---
+
+### A design decision worth recording
+
+When a span fuses several prompts we return **no label** rather than the longest match.
+A wrong label is worse than none here: with no label, `nearest_class()` searches the
+full table using the **measured** w/d/h and degrades gracefully; with a wrong label it
+is forced into that class's 2–3 candidates whatever the tape says. The first version of
+the fix returned `max(hits, key=len)`, which turned a real span into `'cardboard box'`
+on string length alone — confident nonsense, the one output this pipeline must never
+produce.
 
 ---
 

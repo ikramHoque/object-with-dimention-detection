@@ -25,7 +25,7 @@ HOW TO RUN
 from __future__ import annotations
 from typing import Sequence
 import numpy as np
-from .base import Detection, ModelInfo, pick_device, nms
+from .base import Detection, ModelInfo, pick_device, nms, normalise_label
 
 INFO = ModelInfo(
     key="grounding_dino",
@@ -73,8 +73,31 @@ class GroundingDinoDetector:
             res = proc.post_process_grounded_object_detection(out, threshold=self.box_th, **kw)[0]
         except TypeError:
             res = proc.post_process_grounded_object_detection(out, box_threshold=self.box_th, **kw)[0]
-        labels = res.get("labels") or res.get("text_labels")
-        dets = [Detection(label=str(l).strip().lower(), score=float(s),
-                          box=[float(v) for v in b], source=INFO.key)
-                for l, s, b in zip(labels, res["scores"], res["boxes"])]
+        # "text_labels" FIRST, deliberately. transformers warns:
+        #   "The key `labels` will return integer ids in
+        #    post_process_grounded_object_detection output since v4.51.0.
+        #    Use `text_labels` instead to retrieve string object names."
+        # In 5.16.1 both keys still hold identical strings, so preferring
+        # `labels` works today — and would break silently the moment that
+        # change lands, because str(3) == "3" matches no prompt and EVERY
+        # detection would arrive unnamed. Read the string key by name.
+        labels = res.get("text_labels")
+        if labels is None:                       # transformers < 4.51
+            labels = res.get("labels") or []
+        if labels and not isinstance(next(iter(labels)), str):
+            raise TypeError(
+                "Grounding DINO returned non-string labels "
+                f"({type(next(iter(labels))).__name__}). transformers has changed "
+                "its post-processing contract; map ids to prompts in this adapter "
+                "before going further — do not let unnamed boxes through silently.")
+        dets = []
+        for l, sc, b in zip(labels, res["scores"], res["boxes"]):
+            raw = str(l).strip().lower()
+            # Normalise BEFORE nms, not after: nms groups by exact label, so raw
+            # token spans would never suppress each other and the same object
+            # would be counted several times. See normalise_label().
+            lab, reason = normalise_label(raw, prompts)
+            dets.append(Detection(label=lab, label_raw=raw, label_reason=reason,
+                                  score=float(sc), box=[float(v) for v in b],
+                                  source=INFO.key))
         return nms(dets)

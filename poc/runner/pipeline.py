@@ -55,10 +55,33 @@ def sharpness(gray) -> float:
 def load_keyframes(path: Path, *, stride_s: float = 1.0, max_frames: int = 16,
                    blur_min: float = 60.0, bright_range=(35, 225),
                    long_edge: int = 1024):
-    """Read an image or video and return (all_sampled, kept)."""
+    """Read an image, a video, or a FOLDER of stills; return (all_sampled, kept).
+
+    A folder is treated as several views of ONE room, which is the real product
+    shape: a customer photographs a bedroom from six angles rather than filming
+    it. Frames are ordered by filename and given synthetic timestamps, so the
+    dedup stage sees them exactly as it would see video keyframes.
+
+    IMPORTANT — one folder is one ROOM, not one dataset. Stages 7-8 deduplicate
+    across frames, so pointing this at 50 photos of 50 different rooms would
+    merge them into a single nonsense inventory. One room per folder, one run
+    per room.
+    """
     import cv2
     raw = []
-    if path.suffix.lower() in IMG_EXT:
+    if path.is_dir():
+        files = sorted(q for q in path.iterdir() if q.suffix.lower() in IMG_EXT)
+        if not files:
+            raise IOError(f"no images ({', '.join(sorted(IMG_EXT))}) in {path}")
+        for i, q in enumerate(files):
+            img = cv2.imread(str(q))
+            if img is None:
+                print(f"  ! skipping unreadable {q.name}")
+                continue
+            raw.append((float(i), img))
+        if not raw:
+            raise IOError(f"no readable images in {path}")
+    elif path.suffix.lower() in IMG_EXT:
         img = cv2.imread(str(path))
         if img is None:
             raise IOError(f"could not read {path}")
@@ -77,7 +100,10 @@ def load_keyframes(path: Path, *, stride_s: float = 1.0, max_frames: int = 16,
             i += 1
         cap.release()
     else:
-        raise ValueError(f"unsupported file type: {path.suffix}")
+        raise ValueError(
+            f"unsupported input: {path.name}. Pass an image "
+            f"({', '.join(sorted(IMG_EXT))}), a video "
+            f"({', '.join(sorted(VID_EXT))}), or a folder of stills of one room.")
 
     out = []
     for t, fr in raw:

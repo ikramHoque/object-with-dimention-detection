@@ -29,7 +29,32 @@ torchvision>=0.19
 transformers>=4.44          # Grounding DINO (open-vocab detection)
 huggingface_hub>=0.24
 timm>=1.0
-git+https://github.com/microsoft/MoGe.git   # MoGe-2 metric depth (MIT licence)
+scipy>=1.11                 # MoGe-2's focal/shift solver
+
+# MoGe-2's own 3D helper library, at the exact commit MoGe-2 pins (MIT).
+utils3d @ git+https://github.com/EasternJournalist/utils3d.git@3fab839f0be9931dac7c8488eb0e1600c236e183
+
+# MoGe-2 itself is deliberately NOT listed here. setup.sh installs it in a
+# second step, pinned and with --no-deps.
+#
+# WHY - this broke a real install, so do not "simplify" it back:
+#   MoGe's main branch is now MoGe-3, and its pyproject.toml declares
+#       [tool.uv]         environments = ["sys_platform == 'linux'", "win32"]
+#       [tool.uv.sources] torch = [{ index = "pytorch-cu130" }]
+#   uv honours that, resolves torch to a CUDA-only wheel, and macOS dies with
+#       "torch>=2.9.0+cu130 has no wheels with a matching platform tag"
+#   MoGe-3 also needs flex-gemm, a CUDA extension that cannot build on Apple
+#   silicon, plus gradio and opencv-python (which collides with the headless
+#   opencv above - both ship the same cv2 module).
+#
+#   Pinning to b942f00 (MoGe v2.0.0) avoids all four problems and costs us
+#   nothing: our adapter only ever imports moge.model.v2. --no-deps skips
+#   gradio/click/trimesh, none of which inference touches; the two things it
+#   does need, utils3d and scipy, are pinned above.
+#
+#   Verified import chain: moge/__init__.py is empty and utils3d lazy-imports,
+#   so nothing CUDA-only is reached at import time.
+#   Full symptom and fix: RUN-LOCAL.md troubleshooting table.
 
 # --- VLM arm ---
 anthropic>=0.40

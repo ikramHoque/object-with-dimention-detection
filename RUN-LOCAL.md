@@ -6,7 +6,7 @@
 > GPU alternatives: `COLAB.md` · Learning the models: `LEARN.md`
 
 **Short version: your M1 is fast enough for this.** 50 dataset images with Grounding DINO
-is 2–4 minutes. Don't set up cloud until something actually fails.
+is under 10 minutes. Don't set up cloud until something actually fails.
 
 ---
 
@@ -21,7 +21,8 @@ cd /Users/ikramul/Workspace/Office-Workspace/RND/Nippon
 ```
 
 It installs `uv` if missing, creates `poc/.venv` on Python 3.12, installs everything in
-`requirements.txt` (including MoGe-2 from source), and registers a Jupyter kernel.
+`requirements.txt`, then MoGe-2 from source (pinned — see below), registers a
+Jupyter kernel, and finally verifies that every import works.
 
 ```bash
 source poc/.venv/bin/activate
@@ -77,7 +78,7 @@ many validation images can exercise the scale anchor at all.
 
 ---
 
-## Step 2 · Your first real number (~2–4 min)
+## Step 2 · Your first real number (~8–10 min, most of it one-time warm-up)
 
 ```bash
 python -m poc.runner.run_dataset_eval --detector grounding_dino --limit 50
@@ -109,7 +110,9 @@ minutes once.
 
 ### Sanity-check the speed
 
-Note `sec_per_image` in the output. On an M1 expect **1.5–4 s**. If you're seeing 15 s+,
+Note `sec_per_image` in the output. On an M1 expect **2.5–3 s** once warm — but the
+first image of a run also carries a ~370 s one-time warm-up, so a 1-image run looks
+catastrophically slow and a 50-image run does not. If later images are 15 s+,
 something fell back to CPU — see troubleshooting.
 
 ---
@@ -222,18 +225,58 @@ depth maps at each stage, which is far better for judging *why* something went w
 
 ## Expected timings on an M1 16 GB
 
-| Task | Time |
-|------|------|
-| `setup.sh` | ~20 min, once |
-| First model download (DINO 700 MB + MoGe 1.3 GB) | ~5 min, once |
-| Grounding DINO, one image | 1.5–4 s |
-| MoGe-2 ViT-L, one image | 1.5–4 s |
-| **50 dataset images, detection** | **2–4 min** |
-| `--compare-thresholds --limit 30` | 10–20 min |
-| One room, 16 frames, detector + depth | 1–2 min |
-| Full 14-combination sweep, one room | 1–2 hours |
+**Measured on this machine, 3 Sept 2026** (M1, macOS 26.4, torch 2.14.0, MPS).
+The earlier numbers in this table were taken from published benchmarks and were
+wrong about the thing that dominates a short run — see the warm-up row.
 
-Only the last row is uncomfortable. Everything before it is fine locally.
+| Task | Time | How we know |
+|------|------|-------------|
+| `setup.sh` | ~20 min, once | measured |
+| First model download (DINO + MoGe ≈ 2 GB) | ~10 min, once | measured |
+| **Grounding DINO, first inference in a process** | **~370 s** ⚠️ | measured, weights already cached |
+| Grounding DINO, every later image | **2.7 s** | measured |
+| MoGe-2 ViT-L, first inference in a process | ~11 s | measured |
+| MoGe-2 ViT-L, every later image | **2.9 s** | measured |
+| Detector + depth, steady state | **~5.7 s / image** | measured |
+| 50 dataset images, detection | **~8–10 min** | 370 s warm-up + 50 × 2.7 s |
+| One room, 16 frames, detector + depth | ~8 min | 370 s warm-up + 16 × 5.7 s |
+| Full 14-combination sweep, one room | 2–3 hours | warm-up is paid per combination |
+
+### The warm-up dominates short runs — batch accordingly
+
+Grounding DINO's **first** inference in a fresh process costs about **370 seconds**,
+with the weights already on disk. Every subsequent image costs 2.7 s. We have not
+yet established the cause; the likely candidates are MPS kernel compilation or a
+silent CPU fallback on one operator.
+
+The practical consequence is what matters:
+
+```
+50 images in ONE process   ->  370 + 50×2.7  ≈  8.5 min
+50 images, ONE AT A TIME   ->  50 × 373       ≈  5.2 HOURS
+```
+
+So **always pass `--limit`/`--max-frames` and process a batch in a single
+invocation.** Never loop the CLI over images from a shell script. This also means
+a 14-combination sweep pays the warm-up 14 times, which is most of its 2–3 hours.
+
+---
+
+## Running on your own rooms
+
+`--input` takes a single photo, a video, or **a folder of stills of one room** — the
+last being the real product shape, since a customer photographs a bedroom from
+several angles rather than filming it.
+
+```bash
+mkdir -p poc/data/input/smith_bedroom
+cp ~/photos/bedroom/*.jpg poc/data/input/smith_bedroom/
+python -m poc.runner.run_combination --input smith_bedroom \
+    --detector grounding_dino --depth moge2 --classifier none
+```
+
+One folder is one **room**, not one dataset: stages 7-8 deduplicate across frames on
+the assumption every frame shows the same room. See `PIPELINE.md` section 3.
 
 ---
 
@@ -247,10 +290,51 @@ Only the last row is uncomfortable. Everything before it is fine locally.
 | `MPS backend out of memory` | 16 GB shared with the OS | use `moge-2-vits-normal`, drop `resize_long_edge` to 768, lower `--limit` |
 | Kernel dies with no message | memory | same as above; close other apps |
 | `401` / `gated repo` on SAM 3 | weights need acceptance | accept the licence on the model page, then `huggingface-cli login` |
-| `No module named 'moge'` | MoGe install failed | `uv pip install --python poc/.venv/bin/python git+https://github.com/microsoft/MoGe.git` |
+| `No solution found ... torch>=2.9.0+cu130 has no wheels with a matching platform tag` | you installed MoGe from `main`, which is MoGe-3 and CUDA-only | already fixed — `setup.sh` pins MoGe to v2.0.0. If you hit this, you are running an old `setup.sh`; `git pull` and re-run. See below. |
+| `No module named 'moge'` | the MoGe step of setup failed | `uv pip install --python poc/.venv/bin/python --no-deps git+https://github.com/microsoft/MoGe.git@b942f00bdc2a2a23ebb474fbe034d487e6dcceec` |
+| `No module named 'utils3d'` | MoGe was installed `--no-deps` but utils3d was skipped | `uv pip install --python poc/.venv/bin/python -r poc/requirements.txt` |
 | `post_process_grounded_object_detection() got an unexpected keyword` | transformers version drift | already handled by a fallback; if it still fails, pin `transformers==4.44` |
 | Slow first run only | downloading weights | normal, cached afterwards |
 | `ANTHROPIC_API_KEY` missing | Method A needs it | export it, or use `--classifier none` for geometry only |
+
+### Why MoGe is pinned (and why you must not un-pin it)
+
+`setup.sh` installs MoGe like this, and the two flags are both load-bearing:
+
+```bash
+uv pip install --no-deps git+https://github.com/microsoft/MoGe.git@b942f00
+```
+
+MoGe's `main` branch is no longer MoGe-2. It is **MoGe-3**, and its packaging
+declares:
+
+```toml
+[tool.uv]         environments = ["sys_platform == 'linux'", "sys_platform == 'win32'"]
+[tool.uv.sources] torch = [{ index = "pytorch-cu130" }]
+```
+
+macOS is not in that list, and uv honours the CUDA index, so resolution fails
+outright:
+
+```
+× No solution found when resolving dependencies:
+╰─▶ Because torch>=2.9.0+cu130 has no wheels with a matching platform tag
+    (e.g., `macosx_26_0_arm64`) ...
+```
+
+MoGe-3 also depends on **flex-gemm**, a CUDA GEMM extension with no Apple
+silicon build, and on `opencv-python`, which collides with the
+`opencv-python-headless` we already install — both provide `cv2`.
+
+The pin costs us nothing. `poc/models/depth_moge2.py` imports
+`moge.model.v2` and nothing else, and that file's only third-party imports are
+torch, `utils3d` and `huggingface_hub`. `--no-deps` skips gradio, click and
+trimesh, which inference never touches; `utils3d` and `scipy`, which it does
+need, are pinned in `requirements.txt` instead.
+
+**If you want MoGe-3 later**, that is a Colab/Linux decision, not a local one —
+and it is a new model with new published numbers, so it belongs in a fresh
+combination, not a silent swap under the existing one.
 
 ### The two environment variables that matter
 

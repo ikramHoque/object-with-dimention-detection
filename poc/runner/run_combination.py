@@ -193,7 +193,12 @@ def main(argv=None):
     rows = []
     for f in frames:
         for d in f["dets"]:
-            if "door" in d.label:
+            # Exact match, not `"door" in d.label`. Labels are normalised to a
+            # single vocabulary prompt now (see normalise_label), and the old
+            # substring test matched the raw span 'sofa wardrobe door chair',
+            # throwing away a real sofa as if it were the anchor. 'door' is the
+            # only door-like prompt in the 26, so equality is sufficient.
+            if d.label == "door":
                 continue
             e = P.extent(f["depth"], d, scale=scale)
             if not e:
@@ -208,6 +213,39 @@ def main(argv=None):
                              mapped_class=cls, map_dist=round(dist, 3),
                              depth_source=depth_src))
     timings["measure_s"] = round(time.time() - t0, 2)
+
+    # Label quality. An open-vocabulary detector returns matched text, not a
+    # class id, so a box can arrive unlabelled ('') or fused from several
+    # prompts. normalise_label() repairs what it can; what it cannot repair
+    # would otherwise widen the size-class search from 2-3 candidates to all 42
+    # and cost ~18 points of accuracy with nothing in the output to show it.
+    # So it is counted here and reported in the JSON.
+    all_dets = [d for f in frames for d in f["dets"]]
+    reasons: dict[str, int] = {}
+    for d in all_dets:
+        r = getattr(d, "label_reason", "") or "clean"
+        reasons[r] = reasons.get(r, 0) + 1
+    lab_missing = sum(1 for d in all_dets if not d.label)
+    lab_fixed = reasons.get("narrowed", 0)
+    if all_dets:
+        n = len(all_dets)
+        print(f"         labels: " + ", ".join(f"{v} {k}" for k, v in sorted(reasons.items()))
+              + f" (of {n})")
+        # The two failures need OPPOSITE corrections, which is why the reason is
+        # carried all the way here instead of just a count of bad labels.
+        if reasons.get("empty", 0) / n > 0.25:
+            print(f"         ! {reasons['empty']}/{n} boxes were named by nothing: "
+                  "text_threshold is too HIGH, no token cleared it.")
+            print("           LOWER it, 0.25 -> 0.15, and re-run. LEARN.md Lesson 1.")
+        if reasons.get("ambiguous", 0) / n > 0.25:
+            print(f"         ! {reasons['ambiguous']}/{n} spans fused several prompts: "
+                  "text_threshold is too LOW.")
+            print("           RAISE it, 0.25 -> 0.35. These boxes are measured but "
+                  "unnamed — we refuse to guess a class (see normalise_label).")
+        if reasons.get("unmatched", 0):
+            print(f"         ! {reasons['unmatched']} labels matched no prompt at all — "
+                  "check detect_vocab.json against the model's vocabulary.")
+
     masked = sum(1 for r in rows if r.get("used_mask"))
     prior = sum(1 for r in rows if r.get("depth_source") == "class_prior")
     print(f"stage 5  {len(rows)} objects measured, {masked} using masks")
@@ -290,6 +328,17 @@ def main(argv=None):
             "note": "class_prior means the object's depth was never visible to the "
                     "camera, so the cube table supplied it. A high fraction means "
                     "Method B is not measuring independently.",
+        },
+        "label_quality": {
+            "detections": len(all_dets),
+            "by_reason": reasons,
+            "normalised": lab_fixed,
+            "unnamed": lab_missing,
+            "note": "Open-vocabulary detectors return matched text, not class ids. "
+                    "'normalised' had a multi-prompt span reduced to one class; "
+                    "'unnamed' cleared the box threshold but no token cleared "
+                    "text_threshold, so the size-class search could not be "
+                    "restricted. Both are tuning signals, not errors.",
         },
         "inventory": {"method_a": inv_recognised, "method_b": inv_measured},
         "volumes": vols,

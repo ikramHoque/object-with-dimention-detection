@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import re
 from dataclasses import asdict
 
 from .base import ModelInfo
@@ -83,12 +84,28 @@ def build(key: str, **overrides):
     return getattr(mod, cls_name)(**kwargs)
 
 
+def _probe_module(extra: str) -> str:
+    """pip_extra -> the module name to look for.
+
+    Derived rather than matched against a table of exact URLs. The table broke
+    the moment MoGe's URL gained a commit pin (it is now pinned to v2.0.0 —
+    poc/requirements.txt explains why): the lookup missed, fell back to the raw
+    URL as the module name, and every MoGe combination silently reported
+    "not installed".
+
+        git+https://github.com/microsoft/MoGe.git@b942f00     -> moge
+        git+https://github.com/lpiccinelli-eth/UniDepth.git   -> unidepth
+        transformers                                          -> transformers
+    """
+    if extra.startswith("git+"):
+        repo = extra.split("#")[0].rsplit("/", 1)[-1]   # MoGe.git@b942f00...
+        return repo.split(".git")[0].lower()            # moge
+    return re.split(r"[<>=!~\[; ]", extra, maxsplit=1)[0].strip()
+
+
 def is_installed(key: str) -> bool:
     """Is the backend library present? Checks import spec only — no heavy import."""
-    extra = info(key).pip_extra or ""
-    root = extra.split("/")[-1].replace(".git", "") if extra.startswith("git+") else extra
-    probe = {"git+https://github.com/microsoft/MoGe.git": "moge",
-             "git+https://github.com/lpiccinelli-eth/UniDepth.git": "unidepth"}.get(extra, root)
+    probe = _probe_module(info(key).pip_extra or "")
     if not probe:
         return True
     try:

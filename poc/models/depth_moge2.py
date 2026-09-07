@@ -23,6 +23,12 @@ HOW TO RUN
         --depth moge2
     passed to run_combination.
     Confirm it is installed:  python -m poc.models.registry
+
+INSTALL NOTE
+    setup.sh installs this pinned to MoGe v2.0.0 with --no-deps. Do not
+    install MoGe from main: main is MoGe-3, whose packaging pins torch to a
+    CUDA-only wheel and cannot resolve on Apple silicon at all. We import
+    only moge.model.v2, so the pin costs us nothing. See requirements.txt.
 """
 from __future__ import annotations
 import numpy as np
@@ -35,9 +41,11 @@ INFO = ModelInfo(
     checkpoint="Ruicheng/moge-2-vitl",
     licence="MIT",
     commercial_ok=True,
-    pip_extra="git+https://github.com/microsoft/MoGe.git",
+    pip_extra="git+https://github.com/microsoft/MoGe.git@b942f00bdc2a2a23ebb474fbe034d487e6dcceec",
     notes="8.19% metric point-map error, 326M params, ~29ms/frame FP16. "
-          "Smaller variants: moge-2-vitb-normal, moge-2-vits-normal.",
+          "Smaller variants: moge-2-vitb-normal, moge-2-vits-normal. "
+          "Pinned to MoGe v2.0.0: main is now MoGe-3, which forces a "
+          "CUDA-only torch wheel and will not resolve on macOS.",
 )
 
 # Smaller checkpoints, for a slow machine.

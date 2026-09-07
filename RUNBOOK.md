@@ -24,6 +24,11 @@ All commands are run from the **repo root**, not from inside `poc/`.
 | Command | File that runs | What you get |
 |---------|----------------|--------------|
 | `./poc/setup.sh` | `poc/setup.sh` | Python 3.12 venv + all dependencies |
+
+> **New to this?** Read `PIPELINE.md` first. It walks the nine stages with the
+> function and file behind each one, and explains why `run_dataset_eval` (detection
+> metrics) and `run_combination` (the actual pipeline) are different tools.
+
 | `python -m poc.models.registry` | `poc/models/registry.py` | all 13 models, licences, install status |
 | `python -m poc.datasets.homeobjects --download` | `poc/datasets/homeobjects.py` | the labelled dataset (~390 MB) |
 | `python -m poc.runner.run_dataset_eval` | `poc/runner/run_dataset_eval.py` | **detection accuracy vs ground truth** |

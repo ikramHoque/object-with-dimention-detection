@@ -50,6 +50,9 @@ class Detection:
     box: list[float]
     mask: np.ndarray | None = None
     source: str = ""                      # which adapter produced this
+    label_raw: str = ""                   # the detector's own text, pre-normalisation
+    label_reason: str = ""                # normalise_label() verdict: "", narrowed,
+                                          # ambiguous, empty, unmatched
 
     @property
     def area_px(self) -> float:
@@ -163,12 +166,90 @@ def pick_device():
     return torch.device("cpu")
 
 
+def normalise_label(raw: str, prompts: Sequence[str]) -> tuple[str, str]:
+    """Map a detector's raw text onto exactly one vocabulary prompt.
+
+    WHY THIS EXISTS — measured against transformers 5.16.1 / grounding-dino-base,
+    not theorised. Grounding DINO does not return a class name. It returns the
+    TOKEN SPAN whose scores beat `text_threshold`, and that span changes shape
+    with the threshold:
+
+        threshold too high  ->  ''                          no token qualified
+        threshold too low   ->  'sofa wardrobe door chair'   several qualified
+        inside the band     ->  'sofa'                       what we actually want
+
+    Both off-nominal forms are correct model behaviour, and both used to damage
+    us in three separate places:
+
+      1. detect_vocab.json lookup misses, so `allowed` becomes None and the
+         size-class search widens from 2-3 candidates to all 42. nearest_class()
+         puts that at roughly 18 points of accuracy — lost silently, with no
+         error and nothing in the output to show it happened.
+      2. `"door" in label` matched the span 'sofa wardrobe door chair', so a real
+         sofa was discarded as if it were the scale anchor.
+      3. nms() groups by exact label, so 'sofa wardrobe chair' and
+         'sofa wardrobe door chair' counted as different objects and never
+         suppressed each other. The same sofa was counted twice and the volume
+         over-estimated — which is the precise failure this project exists to fix.
+
+    Returns (label, reason), where reason is one of:
+        ""           exact match on a vocabulary prompt — the good case
+        "narrowed"   exactly one prompt found inside a longer span, safe
+        "ambiguous"  several prompts fused; label is "" ON PURPOSE, see below
+        "empty"      the model named nothing
+        "unmatched"  text that matches no prompt at all
+
+    In every case where we cannot identify ONE prompt, the label is "" rather
+    than a guess. An unnamed box is still a real object worth measuring, and
+    Method A's classifier can name it later — that is the intended division of
+    labour ("the detector counts, the chat model names"). Inventing a class is
+    strictly worse than admitting we do not know; the "ambiguous" branch below
+    explains exactly why.
+    """
+    s = " ".join(str(raw).split()).lower()
+    if not s:
+        return "", "empty"
+    known = [p.lower() for p in prompts]
+    if s in known:
+        return s, ""
+    hits = [p for p in known if p in s]
+    # 'chair' is a substring of 'armchair'. A nested pair is one object, not two
+    # competing readings, so drop any hit subsumed by a longer hit before we
+    # decide whether the span is genuinely ambiguous.
+    hits = [h for h in hits if not any(h != o and h in o for o in hits)]
+    if len(hits) == 1:
+        return hits[0], "narrowed"
+    if hits:
+        # Several distinct prompts fused into one span. We deliberately return NO
+        # label rather than picking one, because a WRONG label is much worse here
+        # than no label at all:
+        #
+        #   no label     -> nearest_class searches all 42 classes and picks by
+        #                   MEASURED w/d/h. Geometry-driven, degrades gracefully.
+        #   wrong label  -> nearest_class is FORCED into that class's 2-3
+        #                   candidates whatever the tape measure says. Calling a
+        #                   sofa a 'cardboard box' pins 1.5 m3 of object to a
+        #                   0.06 m3 class, and the error is unrecoverable.
+        #
+        # An earlier version of this function returned max(hits, key=len) — the
+        # longest matching prompt. On a real span of
+        #   'sideboard rolled rug mattress cardboard box door'
+        # that produced 'cardboard box', which won on string length alone and
+        # carried no semantic claim whatsoever. Confident nonsense is the one
+        # output this pipeline must never produce.
+        return "", "ambiguous"
+    return "", "unmatched"
+
+
 def nms(dets: list[Detection], iou_thresh: float = 0.65) -> list[Detection]:
-    """Greedy non-maximum suppression, per label.
+    """Greedy non-maximum suppression, per label, plus an unnamed-duplicate pass.
 
     Different detectors disagree about how many boxes to emit for one object.
     Normalising that here keeps the comparison about the models rather than about
     their default post-processing.
+
+    Two passes, for the reason spelled out at the second one: per-label first,
+    then a cross-label sweep that removes unnamed boxes shadowing named ones.
     """
     def iou(a: list[float], b: list[float]) -> float:
         ax0, ay0, ax1, ay1 = a
@@ -183,11 +264,38 @@ def nms(dets: list[Detection], iou_thresh: float = 0.65) -> list[Detection]:
         return inter / ua if ua > 0 else 0.0
 
     out: list[Detection] = []
-    for label in {d.label for d in dets}:
+    # sorted(), not a bare set. Iterating `{d.label for d in dets}` walks a set of
+    # STRINGS, and Python randomises string hashing per process (PYTHONHASHSEED), so
+    # the output order changed on every run. The volume totals were unaffected — they
+    # are order-independent sums — but the `measurements` rows in every results JSON
+    # came out shuffled, which makes two runs impossible to diff and silently breaks
+    # any comparison that pairs rows by position. For a project whose whole method is
+    # comparing combinations, reproducible ordering is not cosmetic.
+    for label in sorted({d.label for d in dets}):
         group = sorted([d for d in dets if d.label == label], key=lambda d: -d.score)
         keep: list[Detection] = []
         for d in group:
             if all(iou(d.box, k.box) < iou_thresh for k in keep):
                 keep.append(d)
         out.extend(keep)
+
+    # Second pass, across labels, for unnamed boxes only.
+    #
+    # Grouping by label is right for named objects — a chair in front of a sofa
+    # genuinely is two overlapping objects. But normalise_label() deliberately
+    # emits "" when it will not guess a class, and an unnamed box sitting on top
+    # of a NAMED box is not a second object: it is the same object, detected
+    # twice, where one copy failed to clear text_threshold. Per-label grouping
+    # cannot see that, so both survived and the object was counted twice —
+    # inflating volume, the exact failure this project exists to fix.
+    #
+    # The named box strictly dominates: same geometry, plus a class. So drop the
+    # unnamed duplicate and keep the named one.
+    named = [d for d in out if d.label]
+    if named:
+        out = [d for d in out
+               if d.label or all(iou(d.box, n.box) < iou_thresh for n in named)]
+    # Final total order: strongest first, then by geometry to break ties. Deterministic
+    # for a given input regardless of process, so results JSONs diff cleanly.
+    out.sort(key=lambda d: (-d.score, d.box[0], d.box[1], d.box[2], d.box[3], d.label))
     return out
