@@ -4,7 +4,7 @@
 > proven to run. Separates *written* from *verified*, because those are different claims.
 > Update on every change to pipeline behaviour.
 >
-> Map: `ARCHITECTURE.md` · Open decisions: `GAPS.md`
+> Map: `PIPELINE.md` · Open decisions: `GAPS.md`
 
 **Snapshot — 3 Sept 2026**
 
@@ -59,7 +59,7 @@ about 15%, and closing that gap is four setup steps, not more engineering.
 
 ---
 
-## POC pipeline — `poc/pipeline.ipynb`
+## POC pipeline — `poc/pipelines/<name>/`
 
 | Stage | Does | Code | Status | Verified by | Blocked on |
 |-------|------|------|--------|-------------|------------|
@@ -84,18 +84,24 @@ about 15%, and closing that gap is four setup steps, not more engineering.
 | `runner/pipeline.py` | Model-agnostic stage maths | ✅ | full assertion suite passes on synthetic geometry |
 | `runner/run_sweep.py` | Plan and execute the 14 combinations | 🟢 | dry-run plan verified; execution needs models |
 | `runner/compare.py` | Rank runs, pair anchor on/off | ✅ | run against 6 synthetic results |
-| `runner/run_combination.py` | One combination → one result JSON | 🟡 | CLI + licence gate verified; body needs models |
-| `models/detect_grounding_dino.py` | Baseline detector, Apache-2.0 | 🟡 | never executed |
+| `runner/run_combination.py` | The orchestrator: one run → JSON, annotated frame, CSV | ✅ | executed end to end on real photographs |
+| `models/detect_grounding_dino.py` | Baseline detector, Apache-2.0 | ✅ | executed on real photographs, MPS |
 | `models/detect_owlv2.py` | Long-tail detector, Apache-2.0 | 🟡 | never executed |
 | `models/detect_sam3.py` | Native masks, gated weights | 🔴 | never executed; new API, expect churn |
 | `models/detect_rtdetr.py` | Real-time, licence-clean, fixed vocab | 🟡 | never executed |
 | `models/detect_yolo_world.py` | ~20× faster — **AGPL, cannot ship** | 🟡 | never executed |
 | `models/detect_yoloe.py` | Real-time + masks — **AGPL, cannot ship** | 🔴 | never executed; checkpoint names move |
-| `models/depth_moge2.py` | Default depth, MIT | 🟡 | never executed |
+| `models/depth_moge2.py` | Default depth, MIT | ✅ | executed on real photographs, MPS |
 | `models/depth_anything3.py` | Multi-view depth, Apache variant | 🔴 | never executed; HF integration is new |
 | `models/depth_unidepth.py` | Ceiling measurement — **CC BY-NC** | 🟡 | never executed |
-| `models/segment_sam2.py` | Box → mask upgrade | 🟡 | never executed; has a filled-box fallback |
-| `models/classify_claude.py` | Method A, three model sizes | 🟡 | never executed |
+| `models/segment_sam2.py` | Box → mask upgrade | ✅ | executed; door error 16.5% → 6.8%. Loads a `sam2_video` checkpoint — confirm before quoting |
+| `models/classify_claude.py` | Method A, three model sizes | 🟡 | never executed — needs an API key |
+| `runner/report.py` | Annotated frames, item table, CSV | ✅ | shared by CLI and notebook; output inspected |
+| `runner/run_dataset_eval.py` | Detection scoring vs HomeObjects-3K | ✅ | 100 images: precision 0.695, recall 0.222 |
+| `datasets/homeobjects.py` | Dataset loader, OpenCV not ultralytics | ✅ | 2,689 images loaded |
+| `pipelines/_runner.py` | config.py → orchestrator | ✅ | both pipelines run |
+| `pipelines/scaffold.py` | Create a pipeline folder | ✅ | key validation and licence warning tested |
+| `pipelines/make_notebook.py` | Generate a pipeline's notebook | ✅ | both generated; one executed 14/14 cells |
 
 ## Two defects the tests caught
 
@@ -145,14 +151,17 @@ assumptions that will only surface on a real frame:
 | `poc/ground_truth_template.csv` | Schema + 10 example rows | ✅ | template only; the real file does not exist yet |
 | `poc/requirements.txt` | Pinned dependency set | ✅ | installed; MoGe pinned out of the resolve |
 | `poc/setup.sh` | Creates `.venv` on Python 3.12 via uv, registers kernel, verifies imports | ✅ | run end to end, exit 0 |
-| `poc/README.md` | Run order, stage table, what to look at first | ✅ | |
-| `ARCHITECTURE.md` | Diagrams, stage I/O, model table, worked example | ✅ | start here — explains Method A vs Method B |
-| `MODELS.md` | All 13 models, licences, the YOLO answer, how to sweep | ✅ | read before choosing a model |
+| `poc/README.md` | Folder map and the run command | ✅ | rewritten for the pipelines layout |
+| `PIPELINE.md` | The nine stages with the function behind each, Method A vs B, worked example | ✅ | **start here** |
+| `RUNNING.md` | Every way to run it, timings, troubleshooting | ✅ | replaces RUNBOOK + RUN-LOCAL + COLAB |
+| `LEARN.md` | NMS, IoU, thresholds — what they do and how to tune | ✅ | lessons 2-8 still to write |
+| `poc/pipelines/README.md` | What belongs in a pipeline folder, and what must not | ✅ | |
+| `MODELS.md` | All 13 models, licences, and how each one thinks | ✅ | absorbed the former ARCHITECTURES.md |
 | `poc/combinations.json` | 14 one-factor-at-a-time presets, each with its question | ✅ | full grid would be 288 runs / ~19h |
-| `poc/results/` | One JSON per run | ⬜ | empty; gitignored |
+| `poc/results/` · `poc/pipelines/*/results/` | Per-run JSON, annotated frames, CSV | ✅ | populated; gitignored |
 | `GAPS.md` | 22 open gaps in three decision groups | ✅ | A4 and A5 updated with measured sensitivity |
-| `poc/data/input/` | Drop zone for footage | ⬜ | **empty** |
-| `poc/data/output/` | Artefact output | ⬜ | empty |
+| `poc/pipelines/*/data/input/` | Per-pipeline drop zone for footage | ✅ | gitignored. Still **no customer footage** — only a dataset image |
+
 
 ---
 
@@ -394,8 +403,9 @@ logic stays shared in `poc/runner/` and `poc/models/`.
 **The design decision:** config, entry points and data are per pipeline; **logic is
 not copied.** Copying it would make each folder self-contained and wreck the
 codebase, because fourteen copies drift and then nobody can tell which is right.
-Two pieces of local evidence rather than a principle: `poc/pipeline.ipynb` carries an
-inline copy of the stage logic, has never run, and now disagrees with the CLI; and the
+Two pieces of local evidence rather than a principle: `poc/pipeline.ipynb` carried an
+inline copy of the stage logic, was never run, and had drifted into disagreeing with the
+CLI — it has since been deleted for that reason; and the
 coffee-table 19% over-estimate survived partly because the notebook kept its own
 vocabulary lookup.
 

@@ -19,9 +19,11 @@ WHAT IS DELIBERATELY *NOT* IN A PIPELINE FOLDER
     This is the whole design decision, so it is worth stating plainly: copying the
     logic into each folder would make every folder self-contained and would destroy
     the codebase. Fourteen copies drift, and then no one can tell which is correct.
-    We already have proof: poc/pipeline.ipynb carries its own inline copy of the
-    stage logic and now silently disagrees with the CLI, and the coffee-table
-    volume bug survived partly because the notebook had its own vocabulary lookup.
+    We had proof: poc/pipeline.ipynb carried its own inline copy of the stage
+    logic, was never executed, and had drifted into disagreeing with the CLI — it
+    has since been deleted for exactly that reason. The coffee-table volume bug
+    (a 19% over-estimate) also survived partly because a notebook kept its own
+    copy of the vocabulary lookup.
 
     So a pipeline folder answers "what settings, what input, what output" and the
     core answers "how". Change a stage once and every pipeline gets it.

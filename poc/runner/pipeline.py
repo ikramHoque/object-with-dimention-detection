@@ -17,7 +17,7 @@ WHAT'S HERE
     dedup_counts     per-frame counts -> one room inventory           (stage 7)
     vol_from_inventory  inventory -> cubic metres                     (stage 8)
 
-USED BY  poc/runner/run_combination.py, poc/pipeline.ipynb
+USED BY  poc/runner/run_combination.py and every poc/pipelines/*/notebook.ipynb
 
 HOW TO RUN
     Not an entry point - this is a library of stage functions.

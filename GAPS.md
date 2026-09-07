@@ -3,7 +3,7 @@
 > **FILE PURPOSE** — Everything still undecided or unbuilt, with a recommendation for each
 > so it closes with a decision rather than a discussion. Tick items off as they resolve.
 >
-> Map: `ARCHITECTURE.md` · Build state: `STATUS.md`
+> Map: `PIPELINE.md` · Build state: `STATUS.md`
 
 A working checklist. Each gap has a recommendation so it can be closed with a decision
 rather than a discussion. Tick them off as they are resolved.

@@ -150,7 +150,7 @@ def pick_device():
     Why the override exists: on Apple Silicon some PyTorch ops have no Metal kernel.
     Usually PYTORCH_ENABLE_MPS_FALLBACK=1 handles it by running those on the CPU, but
     a few still hard-fail. Forcing cpu for one model is faster than debugging Metal.
-    See RUN-LOCAL.md.
+    See RUNNING.md.
     """
     import os
     import torch

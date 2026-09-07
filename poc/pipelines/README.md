@@ -61,10 +61,11 @@ decision worth defending. Copying it would make each folder fully self-contained
 would wreck the codebase: fourteen copies drift, and then nobody can tell which is
 correct.
 
-That is not hypothetical here. `poc/pipeline.ipynb` carries its own inline copy of the
-stage logic, has never been executed, and now silently disagrees with the CLI. And the
-coffee-table volume bug — a 19% over-estimate — survived partly because the notebook
-had its own copy of the vocabulary lookup. Both are arguments for one copy, imported.
+That is not hypothetical here. `poc/pipeline.ipynb` carried its own inline copy of the
+stage logic, was never executed, and had drifted into disagreeing with the CLI — it has
+since been deleted for that reason. The coffee-table volume bug, a 19% over-estimate,
+also survived partly because a notebook kept its own copy of the vocabulary lookup.
+Both are arguments for one copy, imported.
 
 So a pipeline folder answers *what settings, what input, what output*; the core
 answers *how*. Fix a stage once and every pipeline gets the fix.

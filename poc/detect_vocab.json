@@ -4,7 +4,7 @@
     "why_it_matters": "Two jobs. (1) Anything not listed here is invisible to BOTH methods - it is the first thing to check when stage 9 reports items 'missed entirely'. (2) The value list narrows Method B's candidates when matching a measurement to a size class, which is worth ~18 percentage points of accuracy at realistic error levels. Never match a measurement against the whole table.",
     "how_to_edit": "Add a phrase as a new key with the plausible size classes as its value. Keep phrases lowercase - Grounding DINO expects that. An empty list means 'detect but do not treat as cargo'.",
     "special_case": "'door' has an empty class list on purpose. It is detected only to act as the 1981mm measuring stick in Stage 4, and is excluded from the inventory.",
-    "used_by": "poc/pipeline.ipynb stages 2, 5 and the appendix"
+    "used_by": "stage 2 (prompts) and stage 5 (which size classes a label permits)"
   },
   "prompts": {
     "sofa": [

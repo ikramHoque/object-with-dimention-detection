@@ -135,7 +135,7 @@ if dev == "cpu":
 if bad:
     print()
     print(f"  {len(bad)} import(s) failed: {', '.join(bad)}")
-    print("  See the troubleshooting table in RUN-LOCAL.md.")
+    print("  See the troubleshooting table in RUNNING.md.")
     sys.exit(1)
 VERIFY
 
@@ -145,7 +145,9 @@ Setup complete.
 
   1. export ANTHROPIC_API_KEY=sk-ant-...      (needed for Method A only)
   2. drop a room photo or video into poc/data/input/
-  3. source poc/.venv/bin/activate && jupyter lab poc/pipeline.ipynb
+  3. cp a room photo into poc/pipelines/grounding_dino__moge2/data/input/
+  4. python -m poc.pipelines.grounding_dino__moge2.run          (one shot)
+     or jupyter lab poc/pipelines/grounding_dino__moge2/notebook.ipynb
 
 Select the "NX Survey POC" kernel.
 MSG

@@ -388,3 +388,150 @@ Two things follow, and it is worth keeping them apart:
 
 So detection metrics tell you whether the pipeline can *see*. Only hand-measured rooms
 tell you whether it can *count*. That is gap **A1**, and it stays open.
+
+---
+
+# Why the pipeline is shaped this way
+
+> Merged in from the former `ARCHITECTURE.md`. Its pipeline overview, stage table,
+> model list and file map all duplicated material above or in `MODELS.md`; what
+> follows is the part that was only there — what the POC has to answer, the two
+> competing methods, a worked example, and how a winner gets chosen.
+
+## 1 · What the POC has to answer
+
+> Point a camera at a room. Get back a list of what is in it and how many cubic metres it
+> will take on a removal truck. **Then find out how wrong that answer is.**
+
+That last sentence is the actual deliverable. Producing *a* number is easy; knowing how
+much to trust it is the whole point.
+
+---
+
+## 2 · The two methods — the part that was unclear
+
+There are two fundamentally different ways to get from a photograph to a volume. We do not
+know which is better on our footage, so **we build both and race them once.**
+
+### Method A · Recognise & Look Up
+
+**Works like a surveyor with a clipboard.**
+
+Look at the sofa. Decide *"that's a 3-seater."* Read the volume off a standard table:
+`sofa_3_seat = 1.42 m³`. Write it down. Move on.
+
+**It never measures anything.** The AI's only job is to put the right *name* on things.
+
+### Method B · Measure & Compute
+
+**Works like a surveyor with a tape measure.**
+
+Work out the sofa is 2.08 m wide, 0.91 m deep, 0.86 m tall. Multiply. That is the volume.
+
+**It never looks anything up.** The AI's only job is to *measure* accurately.
+
+### Side by side
+
+| | **Method A** | **Method B** |
+|---|---|---|
+| Mental model | surveyor with a clipboard | surveyor with a tape measure |
+| The AI's job | name things correctly | measure things correctly |
+| Core model | Claude Sonnet 5 (vision) | MoGe-2 (depth) |
+| Needs the cube table? | **yes — completely dependent** | only for the final lookup |
+| Needs to know scale? | **no** | **yes — and this is the hard part** |
+| Fails when | the table is wrong, or the name is wrong | the scale is wrong, or the object is half hidden |
+| Used by the industry? | **yes — all of them** | no product does this |
+| Cost per room | ~$0.12 | ~$0 after setup |
+
+### Why race them at all?
+
+Because they fail for *different* reasons, and neither failure is obvious in advance.
+
+- Method A inherits every error in the cube table. If NX's real 3-seater is 1.6 m³ and our
+  table says 1.42 m³, Method A is 11% wrong **and cannot possibly detect it.**
+- Method B inherits the depth model's scale error, published at **8.19%** — which becomes
+  roughly **26% on volume**, because volume grows with the cube of length.
+
+Every commercial product uses Method A. That is strong evidence, but it is *their* evidence,
+not ours. One test settles it, then we delete the loser and stop paying for it.
+
+---
+
+## 7 · Worked example — one sofa, both routes
+
+Illustrative numbers, to show the mechanics.
+
+**Shared stages**
+
+| Stage | What happens |
+|---|---|
+| 1 | Frame at `t=3.0s`, sharpness 142 — passes |
+| 2 | Box `[412, 288, 901, 604]`, label `sofa`, score 0.71 |
+| 3 | Pixels in that box sit 2.6–4.1 m from the camera |
+| 4 | A door in the same frame measures **1.80 m**. Real doors are **1.981 m**. → `SCALE = 1.101` (everything was ~10% too small) |
+
+**Then the paths split**
+
+```
+METHOD B · Measure & Compute            METHOD A · Recognise & Look Up
+─────────────────────────────           ──────────────────────────────
+points in box x 1.101                   send frame to Claude Sonnet 5
+   height  (vertical axis)  0.86 m         |
+   footprint (PCA)          2.08 x 0.91 m  v
+   raw volume               1.72 m3      {"size_class": "sofa_3_seat",
+   |                                       "count": 1,
+   v                                       "confidence": 0.86}
+nearest class among                        |
+{2_seat, 3_seat, sectional}                v
+   -> sofa_3_seat (dist 0.03)           cube_table -> 1.42 m3
+   |
+   v
+cube_table -> 1.42 m3
+```
+
+Both land on 1.42 m³. **Now the interesting part — where they come apart:**
+
+| Scenario | Method B | Method A |
+|---|---|---|
+| Sofa half behind a table | box is clipped, measures small, maps to `sofa_2_seat` → **1.0 m³, a 30% miss** | still reads "3-seater" from context → **correct** |
+| No door in frame | no anchor, 8% scale error stands → **~26% volume error** | **unaffected** — it never used scale |
+| Cube table wrong for NX | raw box volume is still independent evidence | **11% wrong and cannot detect it** |
+| Unusual item not in the vocabulary | invisible | invisible (both fail — a vocabulary gap) |
+
+This is the whole argument for building both. Stage 9 tells us which failure mode actually
+dominates on real footage.
+
+---
+
+## 8 · How we decide the winner
+
+Stage 9 prints two numbers per method. **Read them in this order:**
+
+1. **`vol_bias_pct`** — is it consistently high or low? Consistent bias is one multiplier
+   away from being fixed. Almost good news.
+2. **`vol_abs_err_pct`** — how much does it vary job to job? Not fixable with a
+   coefficient. The expensive problem.
+
+**A method with large bias and small spread beats the reverse**, even if its raw error
+looks worse. That is counter-intuitive and it is the single most important thing to
+understand when reading the output.
+
+Then run the notebook again with `use_scale_anchor = False` and diff. If the anchor buys
+little, Method B's whole premise is weaker than expected.
+
+---
+
+## 9 · Deliberately not in the POC
+
+Not oversights — tracked as Group C in `GAPS.md`:
+
+carton and box counts · contents of closed cupboards · coverage enforcement ·
+dismantling and fragile-packing rules · **browser upload UI** · authentication ·
+persistence · back-office integration · GDPR controls · photo-archive security ·
+self-pack vs full-pack · multi-room aggregation · confidence intervals and vehicle
+planning · staff review console
+
+The browser UI is deliberately last. It carries no technical risk and is about a day's work
+once the pipeline produces a number worth showing.
+
+---
