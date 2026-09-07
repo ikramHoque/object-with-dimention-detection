@@ -10,6 +10,13 @@ Is Opus 5 worth 2.5x the cost for size-class accuracy?
 | classifier | `claude_opus5` |
 | thresholds | box `0.3`, text `0.25` |
 
+## Understand it first
+
+**`DIAGRAM.md`** in this folder is the system design: how a photograph becomes a
+volume, stage by stage, with the intuition behind each step and where it goes wrong.
+GitHub renders its diagrams inline, so it can be read in a browser. Written for
+someone who will not read the code.
+
 ## Run it
 
 **Put input here:** `data/input/` — a photo, a video, or **a folder of stills of one

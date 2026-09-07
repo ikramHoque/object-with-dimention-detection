@@ -10,6 +10,7 @@ poc/pipelines/
     config.py                       which models, which thresholds
     run.py                          the CLI
     notebook.ipynb                  the same pipeline, one stage per cell
+    DIAGRAM.md                      the system design, for explaining it
     data/input/                     YOUR photographs
     results/                        JSON + annotated frames + items.csv
     README.md
