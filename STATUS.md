@@ -442,6 +442,52 @@ had no input folder. Ignoring the *contents* (`data/input/*`) keeps the folder.
 
 ---
 
+## Masks A/B on 8 real photos (7 Sept 2026)
+
+**The question.** `grounding_dino__moge2__nocls` measured a sofa at
+3.54 × 2.75 × 1.08 m = 10.6 m³. Real sofas are about 2.2 × 0.9 × 0.85. Two candidate
+causes needing opposite fixes: no door in frame (so `SCALE = 1.0`, uncorrected depth
+error) or the box containing floor and wall behind the object.
+
+**The test.** Masks on vs off, same detector, depth, thresholds and photos, in one
+process via `P.measure_room` — so nothing but the segmenter differed. 8 HomeObjects
+living-room photos, each its own room. Script: `mask_ab.py` (scratch, not committed).
+
+| | unmasked | masked | change |
+|---|---|---|---|
+| total, 8 rooms | 41.965 m³ | 31.728 m³ | **−24.4%** |
+| worst single room | 9.401 m³ | 5.154 m³ | −45.2% |
+| best single room | 6.626 m³ | 6.343 m³ | −4.3% |
+
+**The diagnostic — sofa front-to-back depth, where a real answer is known
+(0.85–0.95 m), n = 8:**
+
+| | median | range | within ±15% of real |
+|---|---|---|---|
+| unmasked | 1.61 m — **1.79× too deep** | 0.77–2.75 | **1 of 8** |
+| masked | 0.80 m — **0.89× real** | 0.53–2.15 | **4 of 8** |
+
+**Conclusion: the box containing background is the dominant error, not the missing
+anchor.** An 8% depth error cannot turn 0.9 m into 2.75 m; including the floor in
+front and the wall behind can, and does. So a segmenter is not a refinement on this
+pipeline — without one, single-view depth measures the room, not the furniture.
+
+**And the error changes character, which matters more than its size.** Unmasked, every
+sofa was too deep — one-directional, so it compounds across a room. Masked, 3 read too
+small and 1 too large, because a mask sees only the visible face. Two-directional
+error partly cancels over many objects; one-directional error never does.
+
+**What this does NOT establish.** No ground truth, so there is still no accuracy
+figure — only that masked is closer on the one dimension we can check by hand. `raw`
+volume fell *below* `class-snapped` on 5 of 8 rooms once masked (e.g. 1.505 vs 3.016),
+meaning raw measurement now under-reads real furniture and the cube table is doing the
+correcting. Whether that lands in the right place is exactly what gap **A1** would
+tell us. Also: no door was found in any of the 8 photos, so the anchor is untested
+here rather than shown to be unimportant.
+
+**Standing caveat.** SAM 2 still loads a `sam2_video` checkpoint into `Sam2Model` and
+transformers warns about it. Every masked number above inherits that doubt.
+
 ## Not built, by design
 
 Deferred POC scope, tracked as `GAPS.md` Group C. Listed so it is not mistaken for

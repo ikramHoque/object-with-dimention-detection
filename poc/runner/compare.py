@@ -41,15 +41,34 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT.parent))
 
 
+def result_files() -> list[Path]:
+    """Every result JSON, wherever it was written.
+
+    Results live in TWO places since each combination got its own folder:
+      poc/results/                    the general-purpose CLI writes here
+      poc/pipelines/<name>/results/   a pipeline's own run.py writes here
+    This looked only in the first, so after the restructure it reported "no
+    results" no matter how many pipelines you had run.
+    """
+    out = list((ROOT / "results").glob("*.json"))
+    out += list((ROOT / "pipelines").glob("*/results/*.json"))
+    return sorted(out)
+
+
 def load(room: str | None):
     rows = []
-    for p in sorted((ROOT / "results").glob("*.json")):
+    for p in result_files():
         try:
             d = json.loads(p.read_text())
         except json.JSONDecodeError:
             continue
         if room and d.get("room") != room:
             continue
+        # Which pipeline folder produced this, so a 14-way comparison says where
+        # each row came from rather than making you match combo_ids by eye.
+        d["_pipeline"] = (p.parent.parent.name
+                          if p.parent.name == "results" and p.parent.parent.parent.name
+                          == "pipelines" else "(general CLI)")
         rows.append(d)
     return rows
 
@@ -69,8 +88,16 @@ def main(argv=None):
 
     rows = load(a.room)
     if not rows:
-        print(f"No results in {ROOT/'results'}. Run a sweep first:")
-        print("  python -m poc.pipelines.baseline.run --input <file> --room <ROOM>")
+        print(f"No results yet. Looked in:")
+        print(f"    {ROOT / 'results'}/*.json")
+        print(f"    {ROOT / 'pipelines'}/*/results/*.json\n")
+        print("Run a pipeline first, for example:")
+        print("  python -m poc.pipelines.grounding_dino__moge2__nocls.run --all")
+        print("  python -m poc.pipelines.grounding_dino__moge2__sonnet5.run --all")
+        print("\nAvailable pipelines:")
+        for q in sorted((ROOT / "pipelines").iterdir()):
+            if (q / "config.py").is_file():
+                print(f"    {q.name}")
         return 1
 
     key = f"method_{a.method}"
@@ -83,6 +110,11 @@ def main(argv=None):
             detector=d["config"]["detector"],
             depth=d["config"]["depth"],
             mask="yes" if d["config"].get("segmenter") else "-",
+            # The with/without-LLM arm. Every combination can be run both ways
+            # (--classifier none), so this is the column that pairs them up.
+            llm=(d["config"].get("classifier") or "none"),
+            pipeline=d.get("_pipeline", "?"),
+            room=d.get("room", "?"),
             anchor="on" if d["config"].get("scale_anchor") else "OFF",
             ship="" if d.get("shippable") else "  NO-SHIP",
             bias=s.get("vol_bias_pct"),
@@ -110,49 +142,71 @@ def main(argv=None):
         print("\n! Nothing is scored — ground_truth.csv is missing or does not cover these rooms.")
         print("  Volumes below are unverified numbers, not accuracy results. Gap A1.\n")
 
-    hdr = (f"{'run':22} {'detector':15} {'depth':11} {'mask':5} {'anch':5} "
-           f"{'bias%':>7} {'abs%':>7} {'prec':>5} {'rec':>5} {'m3':>6} {'$':>6} {'s':>6}")
+    # Names differing only in a suffix ("...__sonnet5" vs "...__sonnet5__noanchor")
+    # must stay distinguishable, so keep the END of a name that will not fit.
+    def short(n, w=34):
+        return n if len(n) <= w else "…" + n[-(w - 1):]
+
+    hdr = (f"{'pipeline':34} {'room':14} {'LLM':14} {'mask':5} {'anch':5} "
+           f"{'bias%':>7} {'abs%':>7} {'prec':>5} {'rec':>5} {'m3':>7} {'$':>6} {'s':>6}")
     print("\n" + hdr); print("-" * len(hdr))
     for r in table:
-        print(f"{r['tag'][:22]:22} {r['detector'][:15]:15} {r['depth'][:11]:11} "
+        print(f"{short(r['pipeline']):34} {str(r['room'])[:14]:14} {r['llm'][:14]:14} "
               f"{r['mask']:5} {r['anchor']:5} "
               f"{fmt(r['bias'])} {fmt(r['absv'])} "
-              f"{fmt(r['prec'],5,2)} {fmt(r['rec'],5,2)} {fmt(r['vol'],6)} "
+              f"{fmt(r['prec'],5,2)} {fmt(r['rec'],5,2)} {fmt(r['vol'],7,3)} "
               f"{r['cost']:>6.3f} {r['secs']:>6.1f}{r['ship']}")
 
-    # ---- the key experiment, called out on its own ----
-    # Pair runs that differ ONLY by the anchor. Comparing the best anchored run
-    # against the best un-anchored run would mix in the detector choice and
-    # attribute someone else's gain to the anchor.
-    def sig(r):
-        return (r["detector"], r["depth"], r["mask"])
-    pairs = []
-    for r_on in [r for r in table if r["anchor"] == "on" and r["bias"] is not None]:
-        for r_off in [r for r in table if r["anchor"] == "OFF" and r["bias"] is not None]:
-            if sig(r_on) == sig(r_off):
-                pairs.append((r_on, r_off))
-    if pairs:
-        print(f"\nSCALE ANCHOR — the key experiment")
-        print("  matched pairs (identical config, anchor toggled):")
-        for r_on, r_off in pairs:
-            d = abs(r_off["bias"]) - abs(r_on["bias"])
-            print(f"    {sig(r_on)[0]}/{sig(r_on)[1]}: "
-                  f"|bias| {abs(r_on['bias']):.1f}% on vs {abs(r_off['bias']):.1f}% off "
-                  f"-> anchor worth {d:+.1f} pts")
-    else:
-        on = [r for r in table if r["anchor"] == "on" and r["bias"] is not None]
-        off = [r for r in table if r["anchor"] == "OFF" and r["bias"] is not None]
-        if on and off:
-            print(f"\nSCALE ANCHOR")
-            print(f"  No matched pair found, so this is NOT a clean comparison —")
-            print(f"  the two runs differ by more than the anchor.")
-            print(f"  best |bias| anchor ON  {min(abs(r['bias']) for r in on):.1f}%")
-            print(f"  best |bias| anchor OFF {min(abs(r['bias']) for r in off):.1f}%")
-            print(f"  Run the same detector+depth both ways for a real answer.")
+    # ---- matched-pair comparisons, one variable at a time ----
+    # A pair is only meaningful if EVERYTHING else is equal. The classifier and
+    # the room belong in the signature: pairing a with-LLM run against a
+    # without-LLM one and calling the difference "the anchor" would credit the
+    # anchor with the language model's contribution. Same for the room — two
+    # different rooms have different true volumes, so their biases are not
+    # comparable at all.
+    def sig(r, *ignore):
+        f = dict(detector=r["detector"], depth=r["depth"], mask=r["mask"],
+                 llm=r["llm"], anchor=r["anchor"], room=r["room"])
+        for k in ignore:
+            f.pop(k)
+        return tuple(sorted(f.items()))
 
+    def matched(field, val_a, val_b, label_a, label_b, title, note):
+        """Every pair differing ONLY in `field`."""
+        A = [r for r in table if r[field] == val_a and r["bias"] is not None]
+        B = [r for r in table if r[field] == val_b and r["bias"] is not None]
+        pairs = [(x, y) for x in A for y in B if sig(x, field) == sig(y, field)]
+        if not pairs:
+            if A and B:
+                print(f"\n{title}")
+                print(f"  No matched pair — the runs differ by more than {field}, so")
+                print(f"  any difference cannot be attributed to it.")
+                print(f"  best |bias| {label_a:<12} {min(abs(r['bias']) for r in A):.1f}%")
+                print(f"  best |bias| {label_b:<12} {min(abs(r['bias']) for r in B):.1f}%")
+                print(f"  {note}")
+            return
+        print(f"\n{title}")
+        print(f"  matched pairs — identical in every other respect:")
+        for x, y in pairs:
+            d = abs(y["bias"]) - abs(x["bias"])
+            print(f"    {x['pipeline'][:34]:34} room {x['room'][:12]:12} "
+                  f"|bias| {abs(x['bias']):5.1f}% {label_a} vs {abs(y['bias']):5.1f}% "
+                  f"{label_b}  -> {d:+.1f} pts")
+
+    matched("anchor", "on", "OFF", "on", "off",
+            "SCALE ANCHOR — the key experiment",
+            "Run the same detector+depth+classifier both ways for a real answer.")
+
+    # The axis being tested across all 14 combinations.
+    llms = sorted({r["llm"] for r in table})
+    for other in [x for x in llms if x != "none"]:
+        matched("llm", other, "none", "with", "without",
+                f"LANGUAGE MODEL — {other} vs none",
+                "Run the same pipeline with and without --classifier for an answer.")
     nc = [r for r in table if r["ship"]]
     if nc:
-        print(f"\nCANNOT SHIP ({len(nc)}): {', '.join(r['tag'] for r in nc)}")
+        print(f"\nCANNOT SHIP ({len(nc)}): "
+              f"{', '.join(sorted({r['pipeline'] for r in nc}))}")
         print("  Useful as a ceiling measurement. Never as a product decision.")
 
     print("\nRead bias before abs. Consistent bias is one multiplier from fixed;")

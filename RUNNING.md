@@ -153,7 +153,41 @@ cannot ship for licence reasons. See `poc/pipelines/README.md`.
 | `python -m poc.models.registry` | which models are installed, and which can ship |
 | `python -m poc.runner.run_combination --input <f>` | a one-off run or ablation outside any pipeline folder |
 | `python -m poc.runner.run_dataset_eval --limit 100` | does the detector find boxes? Scored against HomeObjects-3K |
-| `python -m poc.runner.compare` | rank finished runs by bias |
+| `python -m poc.runner.compare` | rank finished runs, and pair them one variable at a time |
+
+### Comparing combinations, with and without the language model
+
+`compare.py` reads every result JSON from **both** `poc/results/` and
+`poc/pipelines/*/results/`, then prints one table plus **matched pairs**.
+
+A matched pair is two runs identical in every respect but one — same detector, depth,
+masks, room and anchor, differing only in the classifier, say. That discipline is the
+whole point: pairing a with-LLM run against a without-LLM one that also used a
+different depth model would credit the language model with the depth model's gain.
+Runs from different **rooms** never pair either, because two rooms have different true
+volumes, so their biases are not comparable at all.
+
+It reports two axes on its own:
+
+| axis | how to produce the pair |
+|---|---|
+| the scale anchor | `grounding_dino__moge2__sonnet5` vs `..__sonnet5__noanchor` |
+| the language model | any pipeline, then the same one with `--classifier none` |
+
+**You do not need 28 folders for the with/without-LLM question.** Every pipeline
+accepts `--classifier none`, so the LLM-free arm of any combination is a flag:
+
+```bash
+python -m poc.pipelines.grounding_dino__moge2__sonnet5.run --all
+python -m poc.pipelines.grounding_dino__moge2__sonnet5.run --all --classifier none
+python -m poc.runner.compare            # prints the matched pair
+```
+
+`grounding_dino__moge2__nocls` exists as a folder because it is the *baseline's*
+LLM-free arm and gets asked about often; the other twelve use the flag.
+
+**Every pair needs `ground_truth.csv`.** Without it `bias%` is empty and the table
+ranks nothing — it can only show you what each run *believed*. Gap **A1**.
 
 **There is no run-everything command, on purpose.** All 14 combinations are pipeline
 folders, each run explicitly. A single command that fires 14 runs at 6 minutes of
