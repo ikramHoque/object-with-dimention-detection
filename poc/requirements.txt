@@ -59,6 +59,12 @@ utils3d @ git+https://github.com/EasternJournalist/utils3d.git@3fab839f0be9931da
 # --- VLM arm ---
 anthropic>=0.40
 
+# --- datasets ---
+# Only needed to STREAM NYU Depth V2 the first time. poc/datasets/nyu_depth.py
+# caches what it pulls as .npz, so after the initial download nothing here is
+# imported again — the parquet shards are 1.28 GB and we want tens of images.
+datasets>=4.0
+
 # --- notebook ---
 jupyterlab>=4.0
 ipykernel>=6.29

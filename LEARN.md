@@ -252,5 +252,111 @@ it's in the vocabulary before assuming the model is bad.
 
 ---
 
-*Lessons 2–8 to follow. Say "next" for OWLv2, which makes the opposite design choice and
-is a useful contrast.*
+# Lesson 2 · Why measuring is not enough — the volume you actually need
+
+This is the question the architecture turns on, and it is not obvious: if the detector
+finds the sofa and the depth model measures it, why is a language model classifying
+anything? We only need a volume.
+
+## Because the volume you need is not the volume you can measure
+
+The customer is not shipping *the box around the visible surface of an object*. They are
+shipping a thing that gets packed onto a truck. Those are different numbers, and
+sometimes wildly different.
+
+Our own run proves it. The rug in the demo room, measured with masks:
+
+```
+what the tape says            what the truck needs
+1.57 x 0.92 x 0.03 m    ->    it ships ROLLED
+= 0.048 m3                    cube table: rug_rolled = 0.227 m3
+                              4.7x bigger than measured
+```
+
+The measurement is *correct* — that rug really is 3 cm thick lying flat. It is also
+useless for a quote. The same gap appears all over a removal:
+
+| item | measured flat / assembled | ships as |
+|---|---|---|
+| rug | 0.03 m thick | rolled |
+| bed | fully assembled | dismantled, flat |
+| dining table | legs on | legs off |
+| bookcase | full of books | empty, plus boxes of books |
+| chairs | 4 separate | stacked |
+
+**Packed volume is a property of the object's CLASS, not of its measured dimensions.**
+That knowledge is what `cube_table.json` encodes, and it is why a size class is a
+complete answer while three measured numbers are not.
+
+## Three more reasons measurement alone falls short
+
+**1. You cannot see the whole object.** A camera sees front surfaces. Our chest of
+drawers measured 0.36 m deep against a real 0.45-0.50 m, because the back is not in the
+picture. A Kinect would not help — occlusion is a property of the viewpoint.
+
+**2. The cube law amplifies every error.** Volume goes as length cubed, so 8% on length
+is 26% on volume, and scale error is one multiplier applied to the whole room rather
+than noise that averages out. Classification has no such amplification: pick the right
+class and the volume is exactly right.
+
+**3. A bounding box is mostly air for some shapes.** A dining table's box is legs and
+emptiness. An L-shaped sofa's box includes the notch.
+
+## So there are three routes to a size class, not one
+
+```
+                    detector: a box, labelled "sofa"
+                                  |
+        +-------------------------+-------------------------+
+        |                         |                         |
+   measured geometry        class prior              Claude looks
+   nearest_class()          resolve_dims()           at the picture
+   works when depth         used when depth          Method A
+   is observable            is NOT observable        an independent signal
+        |                         |                         |
+        +--------------> ONE size class <-------------------+
+                                  |
+                          cube_table.json
+                                  |
+                            packed volume
+```
+
+Note the first two are already classification — just done by geometry matching instead
+of by a language model. The pipeline has never been "pure measurement".
+
+## Is the LLM a cross-check, then? Both, and this matters
+
+Method A and Method B each produce a complete inventory and a complete volume,
+**independently and with uncorrelated failure modes**:
+
+- Method B cannot see the back of a wardrobe.
+- Method A cannot measure anything, but knows a wardrobe is about 0.6 m deep because
+  wardrobes are.
+
+Agreement means you can quote. Divergence means you have found a room that needs a
+human — and that, not a single accuracy number, is the actual product design. It is why
+the KPI set is bias, MAPE, P90, capacity breach and **reviewer adjustment rate**.
+
+Worth being blunt about the ordering: **classification is the industry-proven route,
+not the bolt-on.** Both shipping competitors do inventory -> table -> human review and
+advertise exactly this distinction ("queen vs king", "two-seater vs sectional"). They
+are not measuring those. Measurement is the thing WE are testing, and it is the part
+that might not survive.
+
+## What the LLM is not for
+
+**Counting.** Measured VLM counting accuracy is around 0.53 and it *under*-counts,
+which yields confident low inventories and undersized trucks. The detector counts; the
+language model names. Anything that blurs that division is a bug.
+
+## And we do not yet know whether it earns its place
+
+`grounding_dino__moge2__nocls` exists to answer exactly that: how does pure geometry do
+with no language model at all? Until that has run against measured rooms, "the LLM is
+necessary" is a hypothesis, not a finding.
+
+
+---
+
+*Lessons 3–8 to follow. Say "next" for OWLv2, which makes the opposite design choice to
+Grounding DINO and is a useful contrast.*
