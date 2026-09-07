@@ -47,6 +47,58 @@ python -m poc.pipelines.make_notebook owlv2__da3_metric__nomask
 The scaffolder validates the model keys against the registry and warns if any of them
 cannot ship for licence reasons.
 
+
+## The 14 combinations
+
+Each is one folder. Every run is the baseline with **exactly one thing changed**, so a
+difference in the result has exactly one possible cause — the full cartesian product
+would be 288 runs and about 19 hours, and most cells answer no question anyone asked.
+
+### Shippable (11)
+
+| pipeline folder | models | the question it answers |
+|---|---|---|
+| `anchor_off` | `grounding_dino` + `moge2` + `claude_sonnet5` + **no anchor** | THE KEY EXPERIMENT. How much does the door anchor actually buy? |
+| `baseline` | `grounding_dino` + `moge2` + `claude_sonnet5` | What does the licence-clean default configuration achieve? |
+| `best_guess_stack` | `sam3` + `moge2` + `sam2` + `claude_sonnet5` | Everything we expect to be best, together. Run this LAST, after the single-factor runs point at it |
+| `cls_haiku45` | `grounding_dino` + `moge2` + `claude_haiku45` | Is Haiku 4.5 good enough at a fifth of the cost? |
+| `cls_opus5` | `grounding_dino` + `moge2` + `claude_opus5` | Is Opus 5 worth 2.5x the cost for size-class accuracy? |
+| `depth_da3` | `grounding_dino` + `da3_metric` + `claude_sonnet5` | Does Depth Anything 3's metric variant beat MoGe-2 on our footage? |
+| `det_owlv2` | `owlv2` + `moge2` + `claude_sonnet5` | Does OWLv2's long-tail training beat Grounding DINO on unusual furniture? |
+| `det_rtdetr` | `rtdetr` + `moge2` + `claude_sonnet5` | How much do we lose by giving up open vocabulary for speed and a clean licence? |
+| `det_sam3` | `sam3` + `moge2` + `claude_sonnet5` | Do SAM 3's native masks improve Method B over boxes alone? |
+| `mask_sam2` | `grounding_dino` + `moge2` + `sam2` + `claude_sonnet5` | Does bolting SAM 2 masks onto a box detector match a native mask model? |
+| `method_b_only` | `grounding_dino` + `moge2` | How does pure geometry do with no language model at all? |
+
+### Cannot ship — evaluation only (3)
+
+The folder name says so, and each carries an `ALERT_DO_NOT_SHIP.md`. Their purpose is
+to measure **what staying licence-clean costs us**: if one scores materially better
+than a shippable pipeline, that is an argument for buying a licence, not permission to
+ship. Every run needs `--allow-noncommercial` and the results are stamped
+`shippable: false`.
+
+| pipeline folder | models | the question it answers |
+|---|---|---|
+| `NOSHIP_AGPL__det_yolo_world` | `yolo_world` + `moge2` + `claude_sonnet5` | Is YOLO-World's 20x speed advantage free, or does accuracy drop? AGPL - comparison only |
+| `NOSHIP_AGPL__det_yoloe` | `yoloe` + `moge2` + `claude_sonnet5` | Does YOLOE deliver real-time open vocabulary AND masks? AGPL - comparison only |
+| `NOSHIP_NC__depth_unidepth_ceiling` | `grounding_dino` + `unidepth2` + `claude_sonnet5` | CEILING CHECK. How much accuracy does staying licence-clean cost us? CC BY-NC - cannot ship |
+
+**Read the ALERT file before running these.** Ultralytics' published position is that
+any use of their models — internal research included — requires either releasing your
+whole project under AGPL-3.0 or buying an Enterprise Licence. That is a legal
+question, not a technical one.
+
+### There is no run-everything command, deliberately
+
+You asked for one and I would advise against it, so it is not there: 14 runs at ~6
+minutes of warm-up each hides two hours behind one keystroke and produces a pile of
+results nobody inspects. Every real bug so far — the coffee-table 19% over-estimate,
+the door-anchor percentile error, the unnamed-duplicate double count — was found by
+running **one** pipeline and looking at its annotated frame.
+
+Run them one at a time, and read the picture.
+
 ## What is shared, and why
 
 | Lives in a pipeline folder | Lives in the shared core |

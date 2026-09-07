@@ -214,7 +214,7 @@ Each axis answers a different question. The sweep changes **one at a time**.
 The full grid is **6 × 3 × 2 × 4 × 2 = 288 runs**, roughly **19 hours** on an M1, and most
 cells answer no question anyone asked.
 
-`combinations.json` instead defines **14 one-factor-at-a-time runs**: start from the
+The pipeline folders instead define **14 one-factor-at-a-time runs**: start from the
 baseline and change exactly one thing, so a difference in the result has exactly one
 possible cause. 14 runs, 14 answers. If two factors turn out to interact, add a targeted
 pair afterwards — don't grid pre-emptively.
@@ -223,7 +223,7 @@ pair afterwards — don't grid pre-emptively.
 
 ## 3b · The 14 combinations, in full
 
-Generated from `combinations.json`. Every run is the baseline with **exactly one thing
+One folder per run. Every run is the baseline with **exactly one thing
 changed**, so any difference in the result has exactly one possible cause.
 
 | # | Run | Changed from baseline | Detector | Depth | Mask | Classifier | Anchor | Ship? |
@@ -303,8 +303,9 @@ python -m poc.runner.run_combination \
     --input bedroom.mp4 --room BED01 --no-anchor
 
 # the curated sweep
-python -m poc.runner.run_sweep --input bedroom.mp4 --room BED01 --dry-run
-python -m poc.runner.run_sweep --input bedroom.mp4 --room BED01 --skip-unavailable
+# each combination is its own pipeline folder — run them one at a time
+python -m poc.pipelines.baseline.run --input bedroom.mp4 --room BED01
+python -m poc.pipelines.anchor_off.run --input bedroom.mp4 --room BED01
 
 # rank everything
 python -m poc.runner.compare --room BED01
@@ -370,9 +371,8 @@ POC finding. Tracked as gap **B8**.
 | `models/classify_claude.py` | Method A, three model sizes |
 | `runner/pipeline.py` | Stage functions with every model choice removed |
 | `runner/run_combination.py` | Run one combination → one result JSON |
-| `runner/run_sweep.py` | Run the curated set |
 | `runner/compare.py` | Rank everything |
-| `combinations.json` | The 14 presets, each with the question it answers |
+| `poc/pipelines/*/config.py` | The 14 combinations, each with the question it answers |
 | `results/` | One JSON per run. Gitignored — these can be large |
 
 ---

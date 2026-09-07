@@ -51,6 +51,13 @@ def run_from_config(cfg, argv=None) -> int:
     ap.add_argument("--box-th", type=float, default=None)
     ap.add_argument("--txt-th", type=float, default=None)
     ap.add_argument("--max-frames", type=int, default=None)
+    # Most combinations specify a Claude classifier, which needs ANTHROPIC_API_KEY and
+    # costs money. `--classifier none` runs Method B (measurement) alone, so a pipeline
+    # can be tried without a key. It changes what is measured, so it is an override you
+    # ask for rather than a default.
+    ap.add_argument("--classifier", default=None,
+                    help="override the config: a classifier key, or 'none' for "
+                         "geometry only (no API key needed)")
     ap.add_argument("--no-vis", action="store_true")
     ap.add_argument("--tag", default="")
     ap.add_argument("--allow-noncommercial", action="store_true")
@@ -90,7 +97,8 @@ def run_from_config(cfg, argv=None) -> int:
 
     if getattr(cfg, "SEGMENTER", None):
         args += ["--segmenter", cfg.SEGMENTER]
-    args += ["--classifier", getattr(cfg, "CLASSIFIER", None) or "none"]
+    args += ["--classifier",
+             a.classifier or getattr(cfg, "CLASSIFIER", None) or "none"]
 
     box = pick(a.box_th, "BOX_TH")
     txt = pick(a.txt_th, "TEXT_TH")

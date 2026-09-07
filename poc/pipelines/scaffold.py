@@ -43,6 +43,7 @@ FILE PURPOSE
 
 NAME      = "{name}"
 QUESTION  = "{question}"
+SHIPPABLE = {shippable}        # False -> evaluation only. See ALERT_DO_NOT_SHIP.md
 
 # ---- models -------------------------------------------------------------
 DETECTOR  = "{detector}"        # finds and names objects
@@ -142,6 +143,49 @@ Whether the numbers are **right**. That needs hand-measured rooms in
 what the pipeline believes, not what is true. Gap **A1** in `GAPS.md`.
 '''
 
+ALERT = """# DO NOT USE THIS PIPELINE IN PRODUCTION
+
+**{name}**
+
+This pipeline depends on {bad_list}, which **cannot be shipped**:
+
+{bad_table}
+
+## What that means in practice
+
+{why}
+
+## What this folder IS for
+
+Measuring what staying licence-clean costs us. If `{name}` scores materially better
+than a shippable pipeline, that number is an argument for buying a licence or for
+finding another approach — it is **not** permission to ship this.
+
+Every run requires `--allow-noncommercial`, and the results are stamped
+`shippable: false`. That flag is a deliberate speed bump, not a formality.
+
+## Before running this at all
+
+Ultralytics' own published position is that **any** use of their models — including
+internal research, commercial or not — requires either releasing your entire project
+under AGPL-3.0 or buying an Enterprise Licence. AGPL also reaches SaaS deployment, so
+wrapping it in an API is not an escape.
+
+So this is a legal question, not a technical one. **Get BJIT/NX sign-off first.**
+
+See `MODELS.md` for the licence reasoning and `GAPS.md` gap B9.
+"""
+
+LICENCE_NOTE = {
+    "AGPL-3.0 or paid Ultralytics Enterprise":
+        "AGPL-3.0 requires publishing the source of the ENTIRE work that uses it, and\n"
+        "it reaches network deployment, so a hosted API does not avoid it. Ultralytics\n"
+        "sells an Enterprise Licence as the alternative.",
+    "CC BY-NC 4.0":
+        "CC BY-NC 4.0 forbids commercial use outright. There is no paid escape hatch —\n"
+        "no amount of money makes this shippable in a commercial product.",
+}
+
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Create a new pipeline folder.")
@@ -171,7 +215,15 @@ def main(argv=None):
         print(f"! {', '.join(unshippable)} cannot ship (licence). This pipeline will")
         print("  need --allow-noncommercial on every run and belongs in poc/rnd/.")
 
+    # The folder name carries the warning. Someone browsing the tree, or importing a
+    # module path, should not be able to miss that this one cannot ship.
+    prefix = ""
+    if unshippable:
+        licences = {registry.info(k).licence for k in unshippable}
+        prefix = "NOSHIP_AGPL__" if any("AGPL" in l for l in licences) else "NOSHIP_NC__"
     name = a.name or "__".join([a.detector, a.depth, a.segmenter or "nomask"])
+    if prefix and not name.startswith("NOSHIP"):
+        name = prefix + name
     folder = HERE / name
     if folder.exists() and not a.force:
         print(f"{folder.relative_to(HERE.parents[1])} already exists. --force to rewrite "
@@ -184,7 +236,8 @@ def main(argv=None):
 
     question = a.question or f"{a.detector} + {a.depth}" + (
         f" + {a.segmenter}" if a.segmenter else "")
-    fmt = dict(name=name, question=question, detector=a.detector, depth=a.depth,
+    fmt = dict(name=name, question=question, shippable=not unshippable,
+               detector=a.detector, depth=a.depth,
                segmenter=repr(a.segmenter), classifier=repr(a.classifier),
                segmenter_txt=a.segmenter or "none", classifier_txt=a.classifier or "none",
                box_th=a.box_th, text_th=a.text_th)
@@ -193,6 +246,17 @@ def main(argv=None):
     (folder / "config.py").write_text(CONFIG.format(**fmt))
     (folder / "run.py").write_text(RUN.format(**fmt))
     (folder / "README.md").write_text(README.format(**fmt))
+
+    if unshippable:
+        rows = "\n".join(f"- **{k}** — {registry.info(k).licence}"
+                          for k in unshippable)
+        why = "\n\n".join(sorted({LICENCE_NOTE.get(registry.info(k).licence,
+                                                     "Not licensed for commercial use.")
+                                    for k in unshippable}))
+        (folder / "ALERT_DO_NOT_SHIP.md").write_text(
+            ALERT.format(name=name, bad_list=", ".join(f"`{k}`" for k in unshippable),
+                         bad_table=rows, why=why))
+        print(f"  wrote ALERT_DO_NOT_SHIP.md ({', '.join(unshippable)})")
 
     rel = folder.relative_to(HERE.parents[1])
     print(f"created {rel}/")

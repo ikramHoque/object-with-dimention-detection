@@ -82,7 +82,6 @@ about 15%, and closing that gap is four setup steps, not more engineering.
 | `models/base.py` | The contracts that make models swappable | ✅ | `Detection`, `nms` executed |
 | `models/registry.py` | 13 models, availability probing, **licence gate** | ✅ | CLI run; gate confirmed to refuse `yolo_world` |
 | `runner/pipeline.py` | Model-agnostic stage maths | ✅ | full assertion suite passes on synthetic geometry |
-| `runner/run_sweep.py` | Plan and execute the 14 combinations | 🟢 | dry-run plan verified; execution needs models |
 | `runner/compare.py` | Rank runs, pair anchor on/off | ✅ | run against 6 synthetic results |
 | `runner/run_combination.py` | The orchestrator: one run → JSON, annotated frame, CSV | ✅ | executed end to end on real photographs |
 | `models/detect_grounding_dino.py` | Baseline detector, Apache-2.0 | ✅ | executed on real photographs, MPS |
@@ -157,7 +156,7 @@ assumptions that will only surface on a real frame:
 | `LEARN.md` | NMS, IoU, thresholds — what they do and how to tune | ✅ | lessons 2-8 still to write |
 | `poc/pipelines/README.md` | What belongs in a pipeline folder, and what must not | ✅ | |
 | `MODELS.md` | All 13 models, licences, and how each one thinks | ✅ | absorbed the former ARCHITECTURES.md |
-| `poc/combinations.json` | 14 one-factor-at-a-time presets, each with its question | ✅ | full grid would be 288 runs / ~19h |
+| `poc/pipelines/*/config.py` | 14 one-factor-at-a-time combinations, each with the question it answers | ✅ | replaced combinations.json; the full grid would be 288 runs / ~19h |
 | `poc/results/` · `poc/pipelines/*/results/` | Per-run JSON, annotated frames, CSV | ✅ | populated; gitignored |
 | `GAPS.md` | 22 open gaps in three decision groups | ✅ | A4 and A5 updated with measured sensitivity |
 | `poc/pipelines/*/data/input/` | Per-pipeline drop zone for footage | ✅ | gitignored. Still **no customer footage** — only a dataset image |

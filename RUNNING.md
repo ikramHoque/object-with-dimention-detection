@@ -101,12 +101,13 @@ cannot ship for licence reasons. See `poc/pipelines/README.md`.
 | `python -m poc.models.registry` | which models are installed, and which can ship |
 | `python -m poc.runner.run_combination --input <f>` | a one-off run or ablation outside any pipeline folder |
 | `python -m poc.runner.run_dataset_eval --limit 100` | does the detector find boxes? Scored against HomeObjects-3K |
-| `python -m poc.runner.run_sweep --input <f>` | the OFAT matrix: 14 runs from `poc/combinations.json`, one factor changed each time |
 | `python -m poc.runner.compare` | rank finished runs by bias |
 
-**`run_sweep` and the pipeline folders are not duplicates.** `combinations.json` is an
-*experiment plan* — run it once to decide which configuration to adopt. A pipeline
-folder is a configuration you then *operate*, with its own photographs and results.
+**There is no run-everything command, on purpose.** All 14 combinations are pipeline
+folders, each run explicitly. A single command that fires 14 runs at 6 minutes of
+warm-up each hides two hours of work behind one keystroke and produces results nobody
+inspects; running one and reading its annotated frame is how the last three real bugs
+were found.
 
 ### Detection scoring, no footage needed
 
@@ -225,7 +226,6 @@ combination, not a silent swap under the existing one.
 | the measurement maths | `poc/runner/pipeline.py` — shared by every pipeline |
 | the annotated frame or the CSV | `poc/runner/report.py` — shared by CLI and notebook |
 | the notebook narration | `poc/pipelines/make_notebook.py`, then `--all` |
-| the experiment matrix | `poc/combinations.json` |
 | ground truth | `poc/ground_truth.csv` (copy the template) |
 
 Never edit a `notebook.ipynb` directly — it is generated, and the next `--all` would
@@ -257,7 +257,7 @@ Simplest thing that works today. Notebook provided: `poc/colab/baseline_colab.ip
 1. Open [colab.research.google.com](https://colab.research.google.com)
 2. **Runtime → Change runtime type → T4 GPU**
 3. **File → Upload notebook** → pick `poc/colab/baseline_colab.ipynb`
-   *(naming: `poc/colab/<combination_id>_colab.ipynb`, ids from `combinations.json`)*
+   *(naming: `poc/colab/<pipeline_name>_colab.ipynb`)*
 4. Run the cells top to bottom
 
 It clones the repo, installs dependencies, downloads the dataset and runs the evaluation.

@@ -28,7 +28,7 @@ HOW TO RUN
         Only that room.
     python -m poc.runner.compare --method b --sort abs
         Rank Method B instead, sorted by absolute error.
-    Run this AFTER run_sweep or several run_combination calls.
+    Run this AFTER running several pipelines.
 """
 from __future__ import annotations
 
@@ -70,7 +70,7 @@ def main(argv=None):
     rows = load(a.room)
     if not rows:
         print(f"No results in {ROOT/'results'}. Run a sweep first:")
-        print("  python -m poc.runner.run_sweep --input <file> --room <ROOM>")
+        print("  python -m poc.pipelines.baseline.run --input <file> --room <ROOM>")
         return 1
 
     key = f"method_{a.method}"
