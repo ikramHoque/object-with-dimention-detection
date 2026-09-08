@@ -141,11 +141,61 @@ DEDUP      = {getattr(cfg, 'DEDUP', 'max')!r}            # 'max' believes each s
 
     # ------------------------------------------------------------- imports
     md("""---
-# Set up paths and load the shared code
+# Set up paths, and load the two reference books
 
-Nothing interesting happens here — it just finds this pipeline's folder and the
-project root, so the notebook works no matter which directory you started Jupyter
-from. Run it and move on.
+Most of this cell is plumbing — it finds this pipeline's folder so the notebook works
+whichever directory you started Jupyter from. But three lines in the middle load the
+two files the whole pipeline leans on, so they are worth a minute.
+
+## The two books
+
+| file | the question it answers | think of it as |
+|---|---|---|
+| `poc/detect_vocab.json` | *what am I looking at?* | the shopping list you take to the shop |
+| `poc/cube_table.json` | *what is that worth?* | the price list at the till |
+
+You cannot find anything that is not on the shopping list, and you cannot charge for
+anything that is not on the price list. Everything below is those two ideas.
+
+## The three variables they become
+
+**`PROMPTS`** — 26 plain English phrases: `sofa`, `wardrobe`, `door`, ... Step 2 hands
+this whole list to the detector. This detector is *open-vocabulary*: it has no
+built-in idea of what furniture is, you tell it in words every time. So this list
+**is** what the pipeline can see. A rug is not "missed" — it was never looked for.
+
+**`CLASSES`** — 42 standard sizes, each with a packed volume. `sofa_3_seat` is
+1.4158 m³. This is where the final number on the invoice comes from.
+
+**`VOCAB`** — the shopping list *with* its wiring to the price list:
+
+```
+"sofa"  ->  [sofa_2_seat, sofa_3_seat, sofa_sectional]
+"chair" ->  [dining_chair, office_chair]
+```
+
+This is the part people skip past, and it is the one that does the most work. It is a
+**shortlist**: once step 2 says "sofa", step 5 only has to choose between three prices
+instead of 42. Worth roughly **18 points of accuracy** — see step 5 for why.
+
+## Two things that will confuse you later if you do not read them now
+
+**The detector never says `sofa_3_seat`.** It only knows the 26 words we gave it, so
+the best it can say is `sofa`. Naming and pricing are deliberately two separate jobs,
+done by two different steps.
+
+**Packed volume is not width x depth x height.** A 3-seat sofa measures 1.607 m³ as a
+box but is priced at 1.416 m³, because a rectangle round an L-shape contains a lot of
+air. A double wardrobe goes the other way: 1.440 m³ as a box, 1.699 m³ packed, because
+of padding and crating. Movers bill packed volume. That is the entire reason we look
+the answer up in a table instead of just multiplying the measurement out.
+
+**Caveat you should know before quoting any number.** `cube_table.json` is marked
+`STATUS: PLACEHOLDER`. Published trade cube sheets disagree with each other — the same
+item carries different volumes, and "wardrobe" means furniture on one sheet and a
+hanging carton on another. Every final number is read off this file, so **no model can
+be more accurate than this table is.** Getting NX's own cube sheet is gap A3, and it
+is a ceiling on the whole system, not a detail.
 """)
     code(f"""import sys, json, re
 from datetime import datetime, timezone
@@ -310,8 +360,15 @@ for m in (det, dep, seg):
     md("""---
 # Step 2 · Find the objects
 
-**What it does.** Hands the detector our shopping list of things to look for (`sofa`,
-`wardrobe`, `door`, ...) and gets back a box round each one it found, plus a score.
+**What it does.** Hands the detector our shopping list — all 26 `PROMPTS`, glued into
+one sentence: `"sofa. armchair. coffee table. ... door."` — and gets back a box round
+each thing it found, plus a confidence score.
+
+**It names things. It does not price them.** The best it can ever say is `sofa`,
+because `sofa` is the word we gave it; it has no idea the price list holds three
+different sofas. Choosing *which* sofa is step 5's job, using the measured size.
+Keeping naming and pricing apart is deliberate — it means a bad measurement cannot
+rename the item, and a bad name cannot invent a measurement.
 
 **The catch that causes most of the confusion here.** This kind of detector does not
 return a tidy class number. It returns **whatever words it matched**, which can be a
@@ -402,13 +459,24 @@ says 1.85 m, everything it measured is 7% too small — so multiply every length
 **Why this is the highest-value step in the pipeline.** The depth model's error is
 **one multiplier applied to the entire room**, not random noise. That means it does
 *not* average out over many objects — every object is wrong in the same direction.
+Ten objects do not cancel each other out; they all lean the same way.
 
-And volume is length **cubed**, so the error is tripled:
+And volume is length **cubed**, so the error is tripled. Here is what a wrong door
+actually costs, with the real arithmetic:
 
-> a **16%** error in length becomes a **58%** error in volume — on every item at once.
+| depth model thinks the door is | so `SCALE` = 1.981 / that | every volume in the room moves by |
+|---|---|---|
+| 1.850 m | 1.0708 | **+22.8%** |
+| 1.900 m | 1.0426 | +13.3% |
+| 1.981 m | 1.0000 | 0.0% — already right |
+| 2.100 m | 0.9433 | -16.1% |
 
-One door fixes all of it. This is also why finding doors matters far more than their
-small share of the objects in a room would suggest.
+A **7%** mistake on one length became a **23%** mistake on the bill. Read that table
+once and the rest of the pipeline's design makes sense.
+
+One door fixes all of it, in one multiplication. This is also why finding doors
+matters far more than their small share of the objects in a room would suggest — the
+door is not cargo, it is the ruler.
 
 {'**This pipeline deliberately skips it.** `USE_ANCHOR = False`, so `SCALE` stays at 1.00 and the raw depth error flows straight through. That is the point: comparing this run against the pipeline that keeps the anchor shows you exactly what the door is worth in cubic metres.' if no_anchor else '**If there is no door in the picture** there is nothing to calibrate against, `SCALE` stays 1.00, and that 8% depth error goes straight onto the invoice.'}
 
@@ -436,37 +504,99 @@ else:
 
     # ------------------------------------------------------------- stage 5
     md("""---
-# Step 5 · Turn each box into a size
+# Step 5 · Turn each box into a size, then into a price
 
-Three things happen to every object:
+This is where the two reference books finally meet. Easiest way in is to follow one
+sofa the whole way through. Every number below is real — it comes from running these
+functions.
 
-**1. `P.extent` — measure it.** Takes the 3D points inside the box and finds the
+## Worked example: one sofa
+
+**5.1 `P.extent` measures the box.** Takes the 3D points inside the box and finds the
 object's *own* directions rather than the camera's. A sofa sitting at 30° to the
 camera is still 2.2 m long; measuring along the camera's axes would call it 2.5 m.
 (The technique is PCA on the footprint — it finds the direction the object is longest
-in.) It ignores the most extreme 2% of points so one stray pixel cannot stretch the
-answer.
+in.) It throws away the most extreme 2% of points so one stray pixel cannot stretch
+the answer.
 
-**2. `P.resolve_dims` — fill in what cannot be seen.** A camera never sees the back of
-a wardrobe. For anything flat-fronted against a wall, the front-to-back depth is
-simply not in the picture. When the code detects this it substitutes a standard size
-for that type of furniture and **says so**, rather than reporting a made-up
-measurement as if it were real.
+```
+measured:  w 2.00   d 0.88   h 0.83     ->  box volume 1.461 m3
+```
 
-**3. `P.allowed_classes` — narrow the choices.** Match the measured size against
-standard furniture sizes — but only the ones the name allows. A named `sofa` is
-compared against sofa sizes only. An ambiguous box is compared against everything its
-possible names allow.
+**5.2 `P.allowed_classes` builds the shortlist.** Step 2 said the label was `sofa`, so:
 
-**What to look at.** The `depth_source` column, every time:
+```
+VOCAB['sofa']  ->  [sofa_2_seat, sofa_3_seat, sofa_sectional]
+```
+
+Three candidates instead of 42.
+
+**5.3 `P.nearest_class` picks the closest.** It compares the measurement against each
+candidate's typical size and keeps the smallest difference:
+
+| candidate | typical size | distance |
+|---|---|---|
+| `sofa_2_seat` | 1.6 x 0.9 x 0.85 | 0.198 |
+| **`sofa_3_seat`** | **2.1 x 0.9 x 0.85** | **0.043**  <- winner |
+| `sofa_sectional` | 2.8 x 1.7 x 0.85 | 0.339 |
+
+**Charge: 1.4158 m3** — read off the price list.
+
+Notice the charge (1.416) is *not* the measured box (1.461). We measured in order to
+**identify** the item; the price then comes from the table. That is on purpose, and it
+is what a mover actually bills.
+
+## Why the shortlist exists — the bit that is easy to miss
+
+With a *good* measurement the shortlist changes nothing: searching all 42 also picks
+`sofa_3_seat`. **It earns its keep when the measurement is wrong** — which, without
+masks, it usually is, because the box round a sofa also contains floor and wall.
+
+Real case from our own masked-vs-unmasked run: that same sofa's front-to-back depth
+read **1.61 m** instead of ~0.88 m.
+
+| | winner | charge |
+|---|---|---|
+| shortlist **on** | `sofa_sectional` | 2.265 m3 |
+| shortlist **off** | **`bed_king_frame`** | 1.416 m3 |
+
+Look carefully. Without the shortlist the *number* happens to land closer to the
+truth — but it has put **a king-size bed in the living room**. A surveyor reading that
+cube sheet stops trusting the entire document.
+
+So the shortlist does not make the measurement better. **It stops a bad measurement
+from becoming a nonsense item.** A wrong-size sofa is a recoverable error; furniture
+that does not exist is not.
+
+## `P.resolve_dims` — being honest about what the camera cannot see
+
+A camera never sees the back of a wardrobe. For anything flat against a wall the
+front-to-back depth is simply not in the photograph:
+
+```
+measured:  w 1.20   d 0.11   h 2.00     ->  0.264 m3
+```
+
+0.11 m deep is obviously wrong, but the code cannot measure what is not there. So it
+matches on **width and height only**, then borrows that class's standard depth:
+
+```
+after:     w 1.20   d 0.60   h 2.00     ->  1.440 m3
+class wardrobe_double    depth_source = class_prior    charge 1.699 m3
+```
+
+The important part is that it **writes `class_prior` in the output** instead of
+passing 0.60 m off as a measurement.
+
+**What to look at.** The `depth_source` column, every single time:
 
 | value | meaning |
 |---|---|
 | `observed` | genuinely measured from the picture |
 | `class_prior` | **assumed** from a standard furniture size |
 
-If most rows say `class_prior`, the pipeline is mostly reading a lookup table rather
-than measuring your room.
+If most rows say `class_prior`, this pipeline is mostly *looking things up*, not
+measuring your room — and you need to know that before claiming measurement accuracy.
 """)
     code("""rows, pairs = [], []          # `pairs` feeds the annotated picture further down
 for d in dets:
