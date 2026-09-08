@@ -22,6 +22,7 @@ USED BY  you, when adding a combination
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -221,7 +222,18 @@ def main(argv=None):
     if unshippable:
         licences = {registry.info(k).licence for k in unshippable}
         prefix = "NOSHIP_AGPL__" if any("AGPL" in l for l in licences) else "NOSHIP_NC__"
-    name = a.name or "__".join([a.detector, a.depth, a.segmenter or "nomask"])
+    # Match the convention every existing folder already uses:
+    #     detector __ depth __ [segmenter] __ classifier
+    # e.g. grounding_dino__moge2__sam2__sonnet5, grounding_dino__moge2__nocls.
+    # The classifier is the axis we compare with and without, so it has to be in
+    # the name; a segmenter is only named when there is one. This used to emit
+    # "nomask" and drop the classifier entirely, so an LLM pipeline and its
+    # no-LLM twin would have collided on one folder.
+    parts = [a.detector, a.depth]
+    if a.segmenter:
+        parts.append(a.segmenter)
+    parts.append(re.sub(r"^claude_", "", a.classifier) if a.classifier else "nocls")
+    name = a.name or "__".join(parts)
     if prefix and not name.startswith("NOSHIP"):
         name = prefix + name
     folder = HERE / name
