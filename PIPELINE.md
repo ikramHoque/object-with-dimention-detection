@@ -269,7 +269,7 @@ poc/
   results/             <- EVERY RUN WRITES HERE
      <combo>__<input>__<UTC timestamp>.json
   detect_vocab.json    <- the 26 prompts, and which size classes each allows
-  cube_table.json      <- 42 size classes with volumes  (PLACEHOLDER - not NX's real sheet)
+  cube_table.json      <- 42 size classes with volumes  (PLACEHOLDER - not the client's real sheet)
   ground_truth.csv     <- DOES NOT EXIST YET. Stage 9 is silent until it does.
 ```
 
@@ -495,7 +495,7 @@ Work out the sofa is 2.08 m wide, 0.91 m deep, 0.86 m tall. Multiply. That is th
 
 Because they fail for *different* reasons, and neither failure is obvious in advance.
 
-- Method A inherits every error in the cube table. If NX's real 3-seater is 1.6 m³ and our
+- Method A inherits every error in the cube table. If the client's real 3-seater is 1.6 m³ and our
   table says 1.42 m³, Method A is 11% wrong **and cannot possibly detect it.**
 - Method B inherits the depth model's scale error, published at **8.19%** — which becomes
   roughly **26% on volume**, because volume grows with the cube of length.
@@ -543,7 +543,7 @@ Both land on 1.42 m³. **Now the interesting part — where they come apart:**
 |---|---|---|
 | Sofa half behind a table | box is clipped, measures small, maps to `sofa_2_seat` → **1.0 m³, a 30% miss** | still reads "3-seater" from context → **correct** |
 | No door in frame | no anchor, 8% scale error stands → **~26% volume error** | **unaffected** — it never used scale |
-| Cube table wrong for NX | raw box volume is still independent evidence | **11% wrong and cannot detect it** |
+| Cube table wrong for the client | raw box volume is still independent evidence | **11% wrong and cannot detect it** |
 | Unusual item not in the vocabulary | invisible | invisible (both fail — a vocabulary gap) |
 
 This is the whole argument for building both. Stage 9 tells us which failure mode actually

@@ -76,3 +76,28 @@ poc/pipelines/*/data/input/*
 !poc/pipelines/*/data/input/.gitkeep
 poc/pipelines/*/results/*
 !poc/pipelines/*/results/.gitkeep
+
+# ---------------------------------------------------------------------------
+# CLIENT-CONFIDENTIAL AND COMMERCIAL MATERIAL — never on GitHub.
+#
+# This repository is PUBLIC. The files below are a named client's commercial and
+# proposal material, not research code:
+#
+#   estimation/   the effort estimate — module-by-module man-days, phase totals,
+#                 scope options and the risk register. This is BJIT's pricing basis
+#                 for a specific client and must not be published.
+#   design/       the proposal diagram pack shared with the client.
+#   SYSTEM-DESIGN.md    marked internal in its own header: "do not paste it into a
+#                       client deck". Publishing it contradicts the document.
+#   AI-CORE-DESIGN.md   the client-facing architecture write-up.
+#
+# Gitignore is enough ONLY because none of these were ever committed. If any had
+# been tracked, ignoring it would not remove it — that needs `git rm --cached`, and
+# the content would still sit in history.
+#
+# If this repo is ever made private, delete this block rather than working around it.
+# ---------------------------------------------------------------------------
+estimation/
+design/
+SYSTEM-DESIGN.md
+AI-CORE-DESIGN.md

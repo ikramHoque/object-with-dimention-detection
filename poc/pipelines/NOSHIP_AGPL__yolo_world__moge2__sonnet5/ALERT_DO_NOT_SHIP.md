@@ -28,6 +28,6 @@ internal research, commercial or not — requires either releasing your entire p
 under AGPL-3.0 or buying an Enterprise Licence. AGPL also reaches SaaS deployment, so
 wrapping it in an API is not an escape.
 
-So this is a legal question, not a technical one. **Get BJIT/NX sign-off first.**
+So this is a legal question, not a technical one. **Get BJIT/the client sign-off first.**
 
 See `MODELS.md` for the licence reasoning and `GAPS.md` gap B9.

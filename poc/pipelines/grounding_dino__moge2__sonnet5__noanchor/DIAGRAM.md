@@ -169,7 +169,7 @@ obvious the moment the boxes were drawn on the photograph.
 
 This pipeline reports what it **believes**. Nothing in it establishes whether it is
 **right**. `HomeObjects-3K` scores detection only; `NYU Depth V2` can score depth; but
-neither carries the *packed volume* of a real room, and that is the number NX quotes.
+neither carries the *packed volume* of a real room, and that is the number the client quotes.
 
 Until 3-5 rooms are measured by hand into `poc/ground_truth.csv`, every figure here is
 a demonstration, not a measurement. That is gap **A1** in `GAPS.md`, and no amount of

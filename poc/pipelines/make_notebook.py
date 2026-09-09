@@ -194,7 +194,7 @@ the answer up in a table instead of just multiplying the measurement out.
 `STATUS: PLACEHOLDER`. Published trade cube sheets disagree with each other — the same
 item carries different volumes, and "wardrobe" means furniture on one sheet and a
 hanging carton on another. Every final number is read off this file, so **no model can
-be more accurate than this table is.** Getting NX's own cube sheet is gap A3, and it
+be more accurate than this table is.** Getting the client's own cube sheet is gap A3, and it
 is a ceiling on the whole system, not a detail.
 """)
     code(f"""import sys, json, re
@@ -343,7 +343,7 @@ running** — everything after this is seconds.
 the first time you actually use it. That is why the wait shows up in step 2 rather
 than here.
 
-**What to look at.** The `ship=` column. `ship=True` means the licence lets NX use it
+**What to look at.** The `ship=` column. `ship=True` means the licence lets the client use it
 in the product. `ship=False` means this model is for comparison only.
 """)
     code(f"""from poc.models import registry
@@ -956,7 +956,7 @@ which is why tuning belongs here and production runs belong there.
 def write(name: str) -> Path:
     cfg = importlib.import_module(f"poc.pipelines.{name}.config")
     nb = {"cells": build_cells(cfg),
-          "metadata": {"kernelspec": {"display_name": "NX Survey POC",
+          "metadata": {"kernelspec": {"display_name": "the client Survey POC",
                                       "language": "python", "name": "nx-poc"},
                        "language_info": {"name": "python", "version": "3.12"}},
           "nbformat": 4, "nbformat_minor": 5}

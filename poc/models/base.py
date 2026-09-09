@@ -145,7 +145,7 @@ class Segmenter(Protocol):
 def pick_device():
     """Best available torch device, unless overridden.
 
-    Set NX_DEVICE to force one:  export NX_DEVICE=cpu
+    Set POC_DEVICE to force one:  export POC_DEVICE=cpu
 
     Why the override exists: on Apple Silicon some PyTorch ops have no Metal kernel.
     Usually PYTORCH_ENABLE_MPS_FALLBACK=1 handles it by running those on the CPU, but
@@ -154,12 +154,12 @@ def pick_device():
     """
     import os
     import torch
-    forced = os.environ.get("NX_DEVICE", "").strip().lower()
+    forced = os.environ.get("POC_DEVICE", "").strip().lower()
     if forced in ("cpu", "cuda", "mps"):
         if forced == "cuda" and not torch.cuda.is_available():
-            print("  ! NX_DEVICE=cuda but no CUDA device; falling back to auto")
+            print("  ! POC_DEVICE=cuda but no CUDA device; falling back to auto")
         elif forced == "mps" and not torch.backends.mps.is_available():
-            print("  ! NX_DEVICE=mps but MPS unavailable; falling back to auto")
+            print("  ! POC_DEVICE=mps but MPS unavailable; falling back to auto")
         else:
             return torch.device(forced)
     if torch.cuda.is_available():

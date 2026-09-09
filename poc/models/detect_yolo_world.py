@@ -19,8 +19,8 @@ WHY YOU'D WANT IT
 #  AGPL is stricter than GPL: it reaches SaaS deployment too, so "we only expose
 #  it as an API" is not an escape.
 #
-#  For NX this means: usable to generate a comparison number in the POC only if
-#  BJIT/NX accept that position, and NOT shippable in a closed-source product
+#  For the client this means: usable to generate a comparison number in the POC only if
+#  BJIT/the client accept that position, and NOT shippable in a closed-source product
 #  without buying the Enterprise Licence.
 #
 #  This is why the adapter is registered commercial_ok=False. The runner will

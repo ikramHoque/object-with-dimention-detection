@@ -7,15 +7,15 @@
 
 ## Read this first
 
-Everything run from this directory uses models that **cannot go into the NX product**:
+Everything run from this directory uses models that **cannot go into the the client product**:
 
 | Model | Licence | Why it cannot ship |
 |-------|---------|--------------------|
-| `yolo_world` | **AGPL-3.0** (Ultralytics) | Would oblige NX to publish the entire source code of the survey tool, publicly. Escapable only by buying an Ultralytics Enterprise Licence |
+| `yolo_world` | **AGPL-3.0** (Ultralytics) | Would oblige the client to publish the entire source code of the survey tool, publicly. Escapable only by buying an Ultralytics Enterprise Licence |
 | `unidepth2` | **CC BY-NC 4.0** | Non-commercial use only. No paid escape exists |
 
 **Ultralytics' published position covers internal R&D**, commercial or not. So even the
-runs in this directory may need clearance. **Get NX's legal view before running the
+runs in this directory may need clearance. **Get the client's legal view before running the
 YOLO-World combinations.** The UniDepthV2 ones are research use of a research-licensed
 model, which is the case CC BY-NC is written for — but confirm that too.
 

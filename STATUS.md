@@ -145,7 +145,7 @@ assumptions that will only surface on a real frame:
 
 | File | Purpose | Status | Note |
 |------|---------|--------|------|
-| `poc/cube_table.json` | 42 size classes → packed volume + typical dimensions | ✅ | **PLACEHOLDER** — must be replaced with NX's own cube sheet (gap A3) |
+| `poc/cube_table.json` | 42 size classes → packed volume + typical dimensions | ✅ | **PLACEHOLDER** — must be replaced with the client's own cube sheet (gap A3) |
 | `poc/detect_vocab.json` | 26 detector prompts → candidate size classes | ✅ | `door` included as scale anchor, excluded from inventory |
 | `poc/ground_truth_template.csv` | Schema + 10 example rows | ✅ | template only; the real file does not exist yet |
 | `poc/requirements.txt` | Pinned dependency set | ✅ | installed; MoGe pinned out of the resolve |

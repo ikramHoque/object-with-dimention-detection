@@ -1,4 +1,4 @@
-# NX Pre-Move Survey AI — Open Gaps
+# Pre-Move Survey AI — Open Gaps
 
 > **FILE PURPOSE** — Everything still undecided or unbuilt, with a recommendation for each
 > so it closes with a decision rather than a discussion. Tick items off as they resolve.
@@ -20,31 +20,31 @@ rather than a discussion. Tick them off as they are resolved.
 
 | # | Gap | Who decides | Status |
 |---|-----|-------------|--------|
-| **A1** | Nothing to measure accuracy against | Us + NX | ☐ open |
-| **A2** | "Accuracy" is still undefined | NX | ☐ open |
-| **A3** | No cube table or size-class list | NX | ☐ open |
+| **A1** | Nothing to measure accuracy against | Us + Client | ☐ open |
+| **A2** | "Accuracy" is still undefined | Client | ☐ open |
+| **A3** | No cube table or size-class list | Client | ☐ open |
 | **A4** | Two possible methods, no choice made | Us | ☐ open |
 | **A5** | How the system learns what a metre is | Us | ☐ open |
 | **B1** | Same object counted in many frames | Us | ☐ open |
 | **B2** | Some best models are licence-blocked | Us | ☐ open |
 | **B3** | Objects hidden behind other objects | Us | ☐ open |
-| **B4** | Packed size ≠ real size | Us + NX | ☐ open |
+| **B4** | Packed size ≠ real size | Us + Client | ☐ open |
 | **B5** | Which video frames to actually use | Us | ☐ open |
 | **B6** | No GPU on the dev machine | Us | ☐ open |
 | **B7** | Every room is different | Us | ☐ open |
 | **B8** | Cameras only see the front of things | Us | ☐ open |
-| **B9** | Ultralytics YOLO is AGPL-licensed | Us + NX | ☐ open |
+| **B9** | Ultralytics YOLO is AGPL-licensed | Us + Client | ☐ open |
 | **C1** | Contents of closed cupboards | — | ☐ parked |
 | **C2** | Rooms the customer never photographs | — | ☐ parked |
 | **C3** | Carton / box counts | — | ☐ parked |
 | **C4** | Dismantling and fragile packing | — | ☐ parked |
-| **C5** | GDPR, DPIA, data residency | NX Legal | ☐ parked |
-| **C6** | Security of the photo archive | NX Security | ☐ parked |
-| **C7** | Build vs buy never answered | NX | ☐ parked |
-| **C8** | Which back-office system to feed | NX | ☐ parked |
-| **C9** | Self-pack vs full-pack | NX | ☐ parked |
-| **C10** | No baseline for NX's current process | NX | ☐ parked |
-| **C11** | Should we train our own detector? | Us + NX | ☐ parked |
+| **C5** | GDPR, DPIA, data residency | Client Legal | ☐ parked |
+| **C6** | Security of the photo archive | Client Security | ☐ parked |
+| **C7** | Build vs buy never answered | Client | ☐ parked |
+| **C8** | Which back-office system to feed | Client | ☐ parked |
+| **C9** | Self-pack vs full-pack | Client | ☐ parked |
+| **C10** | No baseline for the client's current process | Client | ☐ parked |
+| **C11** | Should we train our own detector? | Us + Client | ☐ parked |
 
 ---
 
@@ -60,7 +60,7 @@ of the exercise — "is this feasible and how accurate is it" — cannot be answ
 
 **Options.**
 - (a) Hand-measure a few real rooms ourselves with a laser measure.
-- (b) Ask NX for completed jobs with photos plus the actual loaded volume.
+- (b) Ask the client for completed jobs with photos plus the actual loaded volume.
 - (c) Skip it and eyeball the output.
 
 **Recommendation.** Do (a) now and request (b) in parallel. Option (a) is half a day:
@@ -73,7 +73,7 @@ Option (c) is how projects like this quietly fail.
 ---
 
 ### A2 · "Accuracy" is still undefined
-**The gap.** NX asked for 5%. Five percent of what — total volume, one room, one item?
+**The gap.** The client asked for 5%. Five percent of what — total volume, one room, one item?
 Averaged over jobs, or true for 95 of 100 jobs? Measured against a surveyor's estimate
 or against what actually went on the truck?
 
@@ -83,20 +83,20 @@ a contract.
 **Recommendation.** For the POC, define our own metric set and report all of it:
 per-item class accuracy, count error, dimension error, and total volume error split
 into **bias** (are we consistently high or low) and **spread** (how much we vary).
-Take that to NX as the basis for a definition rather than asking them to define it cold.
+Take that to the client as the basis for a definition rather than asking them to define it cold.
 
 ---
 
 ### A3 · No cube table or size-class list
 **The gap.** Both working products in this market assign volume by looking a classified
-item up in a reference table. We do not have NX's table, and published industry tables
+item up in a reference table. We do not have the client's table, and published industry tables
 disagree with each other — the same item carries different values, and "wardrobe" means
 a piece of furniture on one sheet and a hanging carton on another.
 
 **Why it matters.** This is the backbone of the whole system. It also means 10–20%
 disagreement can enter before any AI is involved.
 
-**Recommendation.** Ask NX for their cube sheet and carton specifications as the first
+**Recommendation.** Ask the client for their cube sheet and carton specifications as the first
 formal request of the project. Meanwhile bootstrap a placeholder table so the POC can
 run — one is included in `poc/cube_table.json`, clearly marked as provisional.
 
@@ -223,8 +223,8 @@ model.
 frames, not for a hundred homes.
 
 **Recommendation.** Run the POC locally on the small model variants; move to a rented
-GPU when we start batch-scoring real jobs. Compute cost is not a constraint — roughly
-$0.60 per survey all-in — so this is a convenience question, not a budget one.
+GPU when we start batch-scoring real jobs. Compute cost is immaterial next to the
+accuracy question, so this is a convenience decision rather than a budget one.
 
 ---
 
@@ -284,7 +284,7 @@ GPL and reaches SaaS deployment, so exposing it only as an API is not an escape.
 **Recommendation.** Default to (a). Registered `commercial_ok=False`, so the runner
 refuses these models unless `--allow-noncommercial` is passed, and tags such results
 `shippable=false`. Decide (c) only if the sweep shows the speed advantage is large AND
-NX's volume makes it matter. Get NX's legal view before even the comparison run, since
+The client's volume makes it matter. Get the client's legal view before even the comparison run, since
 Ultralytics' position covers internal R&D.
 
 ---
@@ -295,22 +295,22 @@ These are real and already understood. They are listed so they are not rediscove
 
 | Gap | Note |
 |-----|------|
-| **C1 · Contents of closed cupboards** | The largest error source in the finished product, and not a vision problem at all — the information is not in the photograph. Plan is to measure storage frontage, apply NX's own density factors, and ask the customer one question per unit. Out of POC scope. |
+| **C1 · Contents of closed cupboards** | The largest error source in the finished product, and not a vision problem at all — the information is not in the photograph. Plan is to measure storage frontage, apply the client's own density factors, and ask the customer one question per unit. Out of POC scope. |
 | **C2 · Rooms never photographed** | A missed garage is a 100% error on that room. Solved with a coverage checklist and a completion gate, not with a model. |
 | **C3 · Carton / box counts** | Follows directly once C1 and the cube table exist. |
 | **C4 · Dismantling and fragile packing** | Rules and policy, not perception. Belongs in an editable table. |
 | **C5 · GDPR, DPIA, data residency** | Photos of homes are personal data. Needed before any customer touches this. One question is urgent even now: may customer images be processed by models hosted outside the UK/EU? It constrains the architecture. |
 | **C6 · Security of the photo archive** | A house inventory plus a move date is a target list. Treat as high-sensitivity from day one. |
-| **C7 · Build vs buy never answered** | Incumbents sell this from about $20 a survey. Worth a direct comparison before committing to a build. |
+| **C7 · Build vs buy never answered** | Incumbent products in this market are sold per survey at a published price. Worth a direct comparison before committing to a build. |
 | **C8 · Which back-office system to feed** | Unknown to us. Commonly a large source of unplanned effort. |
 | **C9 · Self-pack vs full-pack** | Changes carton counts materially. Competitors model it explicitly as CP and PBO. Cheap to handle early, expensive to retrofit. |
-| **C10 · No baseline for NX's current process** | We do not know their current error, survey volume, or cost per survey. Every target needs that denominator. |
+| **C10 · No baseline for the client's current process** | We do not know their current error, survey volume, or cost per survey. Every target needs that denominator. |
 
 ---
 
 ### C11 · Should we train our own detector?
 **The gap.** Every detector in the POC is used off the shelf, prompted with words. The
-alternative is to annotate NX's own furniture and fine-tune a detector on exactly our
+alternative is to annotate the client's own furniture and fine-tune a detector on exactly our
 classes. A model trained on our data would very likely beat any open-vocabulary model on
 our classes, and run far faster.
 

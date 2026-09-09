@@ -92,6 +92,6 @@ ipykernel>=6.29
 # Enterprise Licence unless you open-source your ENTIRE project under AGPL-3.0.
 # AGPL also reaches SaaS deployment, so an API wrapper is not an escape.
 #
-# Deliberately NOT installed by default. Uncomment only if BJIT/NX have accepted
+# Deliberately NOT installed by default. Uncomment only if BJIT/the client have accepted
 # that position for comparison purposes:
 # ultralytics>=8.3

@@ -15,7 +15,7 @@
 source poc/.venv/bin/activate
 ```
 
-It creates `poc/.venv` on Python 3.12, installs everything, registers the **NX
+It creates `poc/.venv` on Python 3.12, installs everything, registers the **the client
 Survey POC** Jupyter kernel, and verifies all 11 imports so a broken environment
 fails in two seconds rather than 20 minutes into a run. It is idempotent — re-run
 it after a failure. `NX_RECREATE_VENV=1` forces a rebuild.
@@ -24,11 +24,11 @@ it after a failure. `NX_RECREATE_VENV=1` forces a rebuild.
 
 ```bash
 export PYTORCH_ENABLE_MPS_FALLBACK=1    # always, on a Mac. Prevents hard crashes.
-export NX_DEVICE=cpu                    # only when MPS fails outright.
+export POC_DEVICE=cpu                    # only when MPS fails outright.
 ```
 
 `PYTORCH_ENABLE_MPS_FALLBACK` is not optional: some operators have no Metal kernel
-and will abort the process instead of falling back. `NX_DEVICE` accepts `cpu`, `mps`
+and will abort the process instead of falling back. `POC_DEVICE` accepts `cpu`, `mps`
 or `cuda` and is respected by every entry point.
 
 ---
@@ -249,7 +249,7 @@ warm-up 14 times, which is most of its 2–3 hours.
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | `NotImplementedError: ... MPS backend` | op has no Metal kernel | `export PYTORCH_ENABLE_MPS_FALLBACK=1` |
-| Still crashes on MPS | op hard-fails even with fallback | `export NX_DEVICE=cpu` for that run |
+| Still crashes on MPS | op hard-fails even with fallback | `export POC_DEVICE=cpu` for that run |
 | 15 s+ per image | silently running on CPU | check `mps available: True`; confirm the run prints `on mps` |
 | `MPS backend out of memory` | 16 GB shared with the OS | use `moge-2-vits-normal`, drop `resize_long_edge` to 768, lower `--limit` |
 | Kernel dies with no message | memory | same as above; close other apps |
@@ -308,7 +308,7 @@ combination, not a silent swap under the existing one.
 | which models a pipeline uses | `poc/pipelines/<name>/config.py` |
 | a detector threshold for one pipeline | same `config.py` (`BOX_TH`, `TEXT_TH`) |
 | the prompt list | `poc/detect_vocab.json` |
-| a size class or its volume | `poc/cube_table.json` — **placeholder, not NX's sheet** |
+| a size class or its volume | `poc/cube_table.json` — **placeholder, not the client's sheet** |
 | the measurement maths | `poc/runner/pipeline.py` — shared by every pipeline |
 | the annotated frame or the CSV | `poc/runner/report.py` — shared by CLI and notebook |
 | the notebook narration | `poc/pipelines/make_notebook.py`, then `--all` |
@@ -326,7 +326,7 @@ these is *actually* true, not in anticipation:
 
 - you need the full 14-combination sweep repeatedly, not once
 - you are fine-tuning, not doing inference
-- an operator has no Metal kernel and `NX_DEVICE=cpu` is unbearably slow
+- an operator has no Metal kernel and `POC_DEVICE=cpu` is unbearably slow
 
 The real M1 risk is **missing operations**, not speed — hence
 `PYTORCH_ENABLE_MPS_FALLBACK=1`. While iterating, the smaller depth variants

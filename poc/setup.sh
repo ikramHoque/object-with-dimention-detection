@@ -8,7 +8,7 @@
 #   3. Installs requirements.txt
 #   4. Installs MoGe-2 separately, pinned and --no-deps (requirements.txt
 #      explains why this cannot be folded into step 3)
-#   5. Registers a Jupyter kernel called "NX Survey POC"
+#   5. Registers a Jupyter kernel called "the client Survey POC"
 #   6. Verifies every import works, so a broken env fails loudly and early
 #
 # WHY IT EXISTS
@@ -108,7 +108,7 @@ uv pip install --python .venv/bin/python --no-deps \
   "git+https://github.com/microsoft/MoGe.git@$MOGE_PIN"
 
 echo "==> registering jupyter kernel"
-.venv/bin/python -m ipykernel install --user --name nx-poc --display-name "NX Survey POC"
+.venv/bin/python -m ipykernel install --user --name nx-poc --display-name "the client Survey POC"
 
 echo "==> verifying the environment"
 .venv/bin/python - <<'VERIFY'
@@ -149,7 +149,7 @@ Setup complete.
   4. python -m poc.pipelines.grounding_dino__moge2.run          (one shot)
      or jupyter lab poc/pipelines/grounding_dino__moge2/notebook.ipynb
 
-Select the "NX Survey POC" kernel.
+Select the "the client Survey POC" kernel.
 MSG
 
 # ============================================================================

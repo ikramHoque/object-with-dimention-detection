@@ -40,7 +40,7 @@ datasets/homeobjects.py  loads HomeObjects-3K with OpenCV, deliberately not the
 rnd/                  quarantine for non-shippable research runs
 colab/                GPU notebooks
 
-cube_table.json       42 size classes -> packed volume. PLACEHOLDER, not NX's sheet
+cube_table.json       42 size classes -> packed volume. PLACEHOLDER, not the client's sheet
 detect_vocab.json     26 prompts -> which size classes each prompt permits
 ground_truth_template.csv  copy to ground_truth.csv once rooms are measured
 data/homeobjects3k/   the downloaded dataset (411 MB, gitignored)
@@ -91,6 +91,8 @@ object labelled by class, W×D×H and m³, and `items.csv`.
 | `../MODELS.md` | the catalogue, the licences, and how each model thinks |
 | `../LEARN.md` | what NMS, IoU and the thresholds actually do |
 | `../GAPS.md` | every open decision, **A1 first** |
+| `../AI-CORE-DESIGN.md` | the AI core as a **shareable** design — abstracted, proposal-safe |
+| `../SYSTEM-DESIGN.md` | the production build: modules, AWS, data model, CI/CD. **Internal** |
 | `../STATUS.md` | what exists, and what has actually been executed |
 | `pipelines/README.md` | what belongs in a pipeline folder and what does not |
 

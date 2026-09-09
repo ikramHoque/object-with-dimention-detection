@@ -11,7 +11,7 @@ WHAT IT DOES
 #  THIS MODEL CANNOT SHIP. IT IS HERE TO ESTABLISH A CEILING, NOTHING ELSE.
 #
 #  UniDepthV2 is CC BY-NC 4.0 — non-commercial. It posts some of the best indoor
-#  metric depth numbers in the field and NX could never use it in a product.
+#  metric depth numbers in the field and the client could never use it in a product.
 #
 #  Its only legitimate role in this project: tell us how much accuracy we are
 #  giving up by being licence-clean. If MoGe-2 lands close to it, the licence

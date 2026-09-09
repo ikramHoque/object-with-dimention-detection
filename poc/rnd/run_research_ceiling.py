@@ -20,7 +20,7 @@ QUARANTINE
 
 LEGAL
     Ultralytics' published position covers internal R&D, commercial or not.
-    Get NX's view before running the YOLO-World combinations. The
+    Get the client's view before running the YOLO-World combinations. The
     --i-have-legal-clearance flag is deliberately awkward: a speed bump, not
     security.
 
@@ -69,7 +69,7 @@ CEILING_RUNS = [
     {
         "id": "ceiling_det_yolo_world",
         "model": "yolo_world",
-        "licence": "AGPL-3.0 — would oblige NX to publish all source, or pay Ultralytics",
+        "licence": "AGPL-3.0 — would oblige the client to publish all source, or pay Ultralytics",
         "question": "Is the ~20x speed advantage free, or does detection accuracy drop?",
         "compare_against": "grounding_dino (Apache-2.0)",
         "args": ["--detector", "yolo_world", "--depth", "moge2",
@@ -129,7 +129,7 @@ def main(argv=None):
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--i-have-legal-clearance", action="store_true",
                     dest="cleared",
-                    help="confirm NX legal has approved running non-shippable models")
+                    help="confirm the client legal has approved running non-shippable models")
     a = ap.parse_args(argv)
 
     banner()
@@ -151,7 +151,7 @@ def main(argv=None):
 
     if not a.cleared:
         print("\nSTOPPED. These models cannot ship, and Ultralytics' position covers")
-        print("internal R&D. Confirm NX legal has approved this, then re-run with:")
+        print("internal R&D. Confirm the client legal has approved this, then re-run with:")
         print("  --i-have-legal-clearance")
         return 2
 
@@ -205,7 +205,7 @@ def main(argv=None):
             print("        revisit only if accuracy becomes the binding constraint.")
         else:
             print("  READ: a large gap. Worth a real decision — Enterprise Licence,")
-            print("        a negotiation, or hardware depth. Take this to NX.")
+            print("        a negotiation, or hardware depth. Take this to the client.")
     else:
         which = "shippable" if not prod else "research"
         print(f"  Cannot compare — no scored {which} runs found.")

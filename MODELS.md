@@ -55,7 +55,7 @@ further back. A mask traces the object's actual outline and that error disappear
 
 ### Where this leaves us
 
-| | Open vocabulary? | Masks? | Speed | Can NX ship it? |
+| | Open vocabulary? | Masks? | Speed | Can the client ship it? |
 |---|---|---|---|---|
 | YOLO classic | **no** — 80 fixed classes | no | fastest | yes, but useless to us |
 | YOLO-World | **yes** | no | very fast | **no — see §1b** |
@@ -89,15 +89,15 @@ there are three kinds that matter to us:
 > *"Use this however you like — in a paid product, closed-source, anything. Just keep our
 > copyright notice somewhere."*
 
-No obligations that affect NX. This covers **MoGe-2** (MIT), **Grounding DINO**, **OWLv2**,
+No obligations that affect the client. This covers **MoGe-2** (MIT), **Grounding DINO**, **OWLv2**,
 **RT-DETR** and **SAM 2** (all Apache 2.0). These are safe and need no further thought.
 
 **Type 2 — Copyleft: AGPL-3.0** ← *this is Ultralytics*
 > *"Use this freely, but if you distribute your software or run it as a network service,
 > you must publish YOUR ENTIRE SOURCE CODE under this same licence."*
 
-Read that again with NX in mind. The survey tool is a **web application** — a network
-service. Under AGPL, NX would be obliged to publish the complete source code of it,
+Read that again with the client in mind. The survey tool is a **web application** — a network
+service. Under AGPL, the client would be obliged to publish the complete source code of it,
 publicly, for anyone to take: the pipeline, the cube-sheet logic, the pricing rules, the
 lot. For a commercial logistics company that is simply not an option.
 
@@ -119,7 +119,7 @@ variants. They can be used to measure what we are giving up, and never shipped.
 
 ### The three licences side by side
 
-| Licence | Can NX ship a closed-source product? | Obligation | Our models |
+| Licence | Can the client ship a closed-source product? | Obligation | Our models |
 |---------|--------------------------------------|------------|------------|
 | **MIT / Apache 2.0** | **Yes** | keep the copyright notice | MoGe-2, Grounding DINO, OWLv2, RT-DETR, SAM 2 |
 | **AGPL-3.0** | **No**, unless you pay | publish your entire source code | YOLO-World, YOLOE (via Ultralytics) |
@@ -150,10 +150,10 @@ vocabulary. If speed becomes the binding constraint, use **RT-DETR** (Apache 2.0
 real-time); the cost is a fixed vocabulary, and the adapter records which of our prompts it
 cannot even attempt so the comparison stays honest.
 
-Run YOLO-World and YOLOE **only as benchmarks**, and only after NX's legal team has given a
+Run YOLO-World and YOLOE **only as benchmarks**, and only after the client's legal team has given a
 view — because Ultralytics' stated position covers internal R&D, the comparison run itself
 may need clearance. Buy the Enterprise Licence only if the sweep proves the speed advantage
-is large *and* NX's survey volume makes it worth paying for. Tracked as gap **B9**.
+is large *and* the client's survey volume makes it worth paying for. Tracked as gap **B9**.
 
 ---
 
@@ -597,7 +597,7 @@ YOLO-World's trick: **compile your words into the network before you run it.**
 not per frame. At inference it is a plain CNN. Grounding DINO by contrast runs its text
 fusion on every single frame.
 
-**But:** AGPL-3.0 means shipping it would oblige NX to publish the entire source code of
+**But:** AGPL-3.0 means shipping it would oblige the client to publish the entire source code of
 the survey tool. Comparison only, and even that may need clearance. See `MODELS.md` §1b.
 
 ---
